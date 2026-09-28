@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AR Party - バラの妖精ローズ</title>
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <!-- MindAR for A-Frame -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <!-- どの角度からでもカメラを真っ直ぐ向かせる look-at -->
+    <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
+    <style>
+      .screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(135deg, #ffdde1, #ee9ca7);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-family: sans-serif;
+        text-align: center;
+        transition: opacity 0.5s ease;
+      }
+      .screen h1 {
+        color: #d81b60;
+        font-size: 28px;
+        margin-bottom: 20px;
+      }
+      .screen p {
+        color: #555;
+        font-size: 16px;
+        margin-bottom: 30px;
+        padding: 0 20px;
+      }
+      .btn {
+        background-color: #ff4081;
+        color: white;
+        border: none;
+        padding: 15px 40px;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 30px;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      }
+      /* 次へ進む・おわるボタン（AR起動後に右上に表示） */
+      #next-btn {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 999;
+        background: #ff4081;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        display: none; /* 最初は非表示 */
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      }
+    </style>
+  </head>
+  <body style="margin: 0; overflow: hidden;">
+
+    <!-- ① スタート画面 -->
+    <div id="start-screen" class="screen">
+      <h1>🌹 AR バラの妖精 🌹</h1>
+      <p>ボタンを押してカメラを起動し、<br>マーカーにかざして妖精を呼び出そう！</p>
+      <button class="btn" id="start-btn">はじめる</button>
+    </div>
+
+    <!-- 次の画面へ進むためのボタン -->
+    <button id="next-btn">つぎへ ➔</button>
+
+    <!-- AR シーン -->
+    <a-scene 
+      id="ar-scene"
+      mindar-image="imageTargetSrc: ./targets.mind; uiLoading: yes; uiScanning: yes;" 
+      color-space="sRGB" 
+      renderer="colorManagement: true, physicallyCorrectLights" 
+      vr-mode-ui="enabled: false" 
+      device-orientation-permission-ui="enabled: false"
+      style="display: none;">
+      
+      <a-assets>
+        <img id="rose1" src="rose_1.png">
+        <img id="rose2" src="rose_2.png">
+        <img id="rose3" src="rose_3.png">
+        <img id="rose4" src="rose_4.png">
+        <img id="rose5" src="rose_5.png">
+        <img id="rose6" src="rose_6.png">
+        <img id="rose7" src="rose_7.png">
+      </a-assets>
+
+      <a-camera id="camera" position="0 0 0" look-controls="enabled: false" cursor="rayOrigin: mouse" raycaster="far: 10000; objects: .clickable"></a-camera>
+
+      <!-- 自作マーカー認識時のターゲット -->
+      <a-entity id="ar-target" mindar-image-target="targetIndex: 0">
+        <a-image 
+          id="rose-fairy"
+          src="#rose1" 
+          position="0 0.4 0" 
+          width="2.5" 
+          height="1.35"
+          class="clickable"
+          look-at="#camera"
+          animation__float="property: position; to: 0 0.6 0; dir: alternate; dur: 1000; loop: true; easing: easeInOutSine">
+        </a-image>
+      </a-entity>
+      
+    </a-scene>
+
+    <script>
+      const startScreen = document.getElementById('start-screen');
+      const startBtn = document.getElementById('start-btn');
+      const arScene = document.getElementById('ar-scene');
+      const nextBtn = document.getElementById('next-btn');
+      const arTarget = document.getElementById('ar-target');
+      const rose = document.querySelector('#rose-fairy');
+
+      let isLockedOnScreen = false; // マーカー位置で固定されたかフラグ
+
+      // 「はじめる」ボタン
+      startBtn.addEventListener('click', () => {
+        startScreen.style.opacity = '0';
+        setTimeout(() => {
+          startScreen.style.display = 'none';
+          arScene.style.display = 'block';
+        }, 500);
+      });
+
+      // マーカーを最初に読み込んだ瞬間
+      arTarget.addEventListener('targetFound', () => {
+        if (!isLockedOnScreen) {
+          isLockedOnScreen = true;
+          // マーカーが見つかったら、右上の「つぎへ」ボタンを表示する
+          nextBtn.style.display = 'block';
+          
+          // ※ここでマーカー追従を切り離して画面内に定着させたい場合の処理を拡張できます
+        }
+      });
+
+      // 「つぎへ」ボタンを押したときの処理（次の画面ファイルへ移動、または終了画面へ）
+      nextBtn.addEventListener('click', () => {
+        // 例: 次の場面のファイルへ移動する場合
+        window.location.href = 'index2.html'; 
+      });
+
+      // 妖精のアニメーション制御（瞬き ＆ タップジャンプ）
+      window.addEventListener('DOMContentLoaded', () => {
+        if (!rose) return;
+        let isJumping = false;
+
+        // 1. 瞬き
+        setInterval(() => {
+          if (!isJumping) {
+            rose.setAttribute('src', '#rose2');
+            setTimeout(() => {
+              if (!isJumping) rose.setAttribute('src', '#rose1');
+            }, 150);
+          }
+        }, 3000);
+
+        // 2. タップ時ジャンプ
+        const jumpFrames = ['#rose1', '#rose3', '#rose4', '#rose5', '#rose6', '#rose7', '#rose1'];
+        rose.addEventListener('click', () => {
+          if (isJumping) return;
+          isJumping = true;
+          let frameIndex = 0;
+          const frameInterval = 120;
+
+          const jumpTimer = setInterval(() => {
+            frameIndex++;
+            if (frameIndex < jumpFrames.length) {
+              rose.setAttribute('src', jumpFrames[frameIndex]);
+            } else {
+              clearInterval(jumpTimer);
+              rose.setAttribute('src', '#rose1');
+              isJumping = false;
+            }
+          }, frameInterval);
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AR Party 🌹☁️✨🍃 4 人の妖精フィナーレ</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;overflow:hidden;font-family:'M PLUS Rounded 1c',sans-serif;
+       background:linear-gradient(135deg,#fff0c4 0%,#ffdde1 50%,#d7e9fc 100%);color:#4a3b32;user-select:none}
+  #topbar,#bottombar{position:fixed;left:0;right:0;z-index:100;background:rgba(255,255,255,.75);
+       backdrop-filter:blur(10px);display:flex;align-items:center}
+  #topbar{top:0;padding:10px 14px;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.5)}
+  #bottombar{bottom:0;padding:14px;justify-content:center;gap:8px;border-top:1px solid rgba(255,255,255,.5)}
+  #topbar h1{margin:0;font-size:14px;font-weight:700;color:#4a3b32}
+  #topbar h1 small{display:block;font-size:10px;color:#777;font-weight:500}
+  .nav-btn{background:linear-gradient(90deg,#ff4081,#ff9800);color:#fff;border:none;padding:9px 18px;border-radius:20px;
+           font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.2);text-decoration:none;display:inline-block}
+  .nav-btn:disabled{opacity:.45;cursor:not-allowed}
+  .ghost-btn{background:rgba(255,255,255,.6);color:#555;border:1px solid #ccc;padding:10px 18px;border-radius:22px;font-size:13px;font-weight:700;cursor:pointer}
+  #stage{position:fixed;inset:50px 0 110px 0;overflow:hidden}
+
+  .fairy-card{position:absolute;left:var(--pos-x);top:var(--pos-y);
+              transform:translate(-50%,-50%) scale(var(--scale));text-align:center;cursor:pointer}
+  .fairy-img{width:240px;height:auto;max-height:200px;filter:drop-shadow(0 12px 18px rgba(0,0,0,.18));pointer-events:none}
+  .fairy-img-fallback{font-size:110px;line-height:1;filter:drop-shadow(0 8px 12px rgba(0,0,0,.2));pointer-events:none}
+  .fairy-card.jumping .fairy-img,.fairy-card.jumping .fairy-img-fallback{animation:jumpBounce .5s ease}
+  .fairy-name{margin-top:5px;background:rgba(255,255,255,.88);padding:6px 12px;border-radius:14px;
+              display:inline-block;border:2px solid var(--fairy-color);box-shadow:0 2px 6px rgba(0,0,0,.1);font-size:11px}
+  .fairy-name strong{font-size:12px;color:var(--fairy-accent);display:block}
+  .fairy-name .role{font-size:9px;color:var(--fairy-accent)}
+  .fairy-name .caption{display:block;font-size:8px;color:#888;margin-top:1px}
+
+  .fairy-placeholder{width:180px;height:180px;border-radius:50%;
+    background:radial-gradient(circle,color-mix(in srgb,var(--fairy-color) 30%,#fff) 0%,transparent 70%);
+    border:3px dashed var(--fairy-color);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--fairy-accent);animation:pulse 2s ease-in-out infinite}
+  .fairy-placeholder .ph-icon{font-size:42px}
+  .fairy-placeholder .ph-name{font-weight:700;font-size:11px;margin-top:4px}
+  .fairy-placeholder .ph-hint{font-size:8px;color:#777;margin-top:4px}
+  .fairy-placeholder .ph-hint code{background:#fff5;padding:1px 4px;border-radius:3px}
+
+  @keyframes fadeBounce   { 0%{transform:translate(-50%,-50%) scale(0.4);}
+                            60%{transform:translate(-50%,-50%) scale(1.15);}
+                            80%{transform:translate(-50%,-50%) scale(0.95);}
+                            100%{transform:translate(-50%,-50%) scale(1.0);} }
+  @keyframes floatDown    { 0%{transform:translate(-50%,-160%) scale(0.6);}
+                            70%{transform:translate(-50%,-45%) scale(1.1);}
+                            100%{transform:translate(-50%,-50%) scale(1.0);} }
+  @keyframes sparkleBurst { 0%{transform:translate(-50%,-50%) scale(0.2) rotate(0deg);}
+                            60%{transform:translate(-50%,-50%) scale(1.2) rotate(180deg);}
+                            100%{transform:translate(-50%,-50%) scale(1.0) rotate(360deg);} }
+  @keyframes windSweep    { 0%{transform:translate(-160%,-50%) scale(0.6);}
+                            70%{transform:translate(-45%,-50%) scale(1.1);}
+                            100%{transform:translate(-50%,-50%) scale(1.0);} }
+  .entry-fadeBounce   {animation:fadeBounce   1100ms cubic-bezier(.34,1.56,.64,1) forwards}
+  .entry-floatDown    {animation:floatDown    1500ms cubic-bezier(.34,1.56,.64,1) forwards}
+  .entry-sparkleBurst {animation:sparkleBurst 1300ms ease-out forwards}
+  .entry-windSweep    {animation:windSweep    1300ms cubic-bezier(.34,1.56,.64,1) forwards}
+  @keyframes pulse      { 0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--fairy-color) 40%,transparent);}
+                                     50%{box-shadow:0 0 0 14px transparent;} }
+  @keyframes jumpBounce { 0%{transform:translateY(0)} 30%{transform:translateY(-30px) rotate(-3deg)}
+                          60%{transform:translateY(0) rotate(0)} 80%{transform:translateY(-10px) rotate(2deg)}
+                          100%{transform:translateY(0) rotate(0)} }
+
+  .fairy-bubble{position:absolute;bottom:96%;left:50%;transform:translateX(-50%) scale(.85);
+                background:#fff;color:#4a3b32;border:2px solid var(--fairy-color);
+                padding:9px 14px;border-radius:16px;font-size:13px;font-weight:600;
+                max-width:300px;min-width:170px;line-height:1.4;
+                box-shadow:0 4px 14px rgba(0,0,0,.18);opacity:0;
+                transition:opacity .3s ease,transform .3s ease;
+                pointer-events:none;z-index:50;text-align:left}
+  .fairy-bubble.show{opacity:1;transform:translateX(-50%) scale(1)}
+  .fairy-bubble .b-name{display:block;background:var(--fairy-color);color:#fff;padding:2px 8px;border-radius:10px;
+                        font-size:11px;font-weight:700;margin-bottom:4px;width:fit-content}
+  .fairy-bubble .b-text{display:block;font-size:13px}
+  .fairy-bubble::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+                       border:8px solid transparent;border-top-color:var(--fairy-color)}
+
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:80;overflow:hidden}
+  .confetti{position:absolute;top:-10%;width:12px;height:12px;border-radius:50%;
+            animation:confettiFall linear infinite}
+  @keyframes confettiFall{
+    0%{transform:translateY(0) rotate(0);opacity:0}
+    15%{opacity:1}
+    100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+
+<div id="confetti"></div>
+
+<nav id="topbar">
+  <h1>🌹☁️✨🍃 4 人の妖精フィナーレ
+    <small>data-driven sequencer · 4/4</small></h1>
+  <a class="nav-btn" href="webar_fairy_world.html">🌐 ハブへ戻る</a>
+</nav>
+
+<div id="stage"></div>
+
+<nav id="bottombar">
+  <button class="ghost-btn" onclick="location.href='index3.html'">◀ まえへ</button>
+  <button class="nav-btn" id="done-btn" disabled
+          onclick="alert('🌟 4 人の妖精と友達になりました！ハブの「フレンド図鑑」タブへようこそ')">
+    🎉 図鑑に記録する
+  </button>
+</nav>
+
+<script src="fairies.js"></script>
+<script>
+  (function confetti(){
+    const wrap = document.getElementById('confetti');
+    const palette = ['#ff4081','#4fc3f7','#ffd54f','#aed581','#ba68c8'];
+    for (let i=0; i<40; i++){
+      const c = document.createElement('div');
+      c.className='confetti';
+      c.style.left = Math.random()*100+'vw';
+      c.style.background = palette[Math.floor(Math.random()*palette.length)];
+      c.style.animationDuration = (Math.random()*3+2)+'s';
+      c.style.animationDelay = (Math.random()*5)+'s';
+      const s = Math.random()*8+8;
+      c.style.width = c.style.height = s+'px';
+      wrap.appendChild(c);
+    }
+  })();
+  const stage = document.getElementById('stage');
+  FairySequencer.buildNodes(stage, {});
+  FairySequencer.runSequence(stage, {});
+  setTimeout(()=>{ document.getElementById('done-btn').disabled = false; }, 7000);
+</script>
+
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>

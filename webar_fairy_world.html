@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebAR Fairy World ― 妖精たちのファンタジーの旅</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=M+PLUS+Rounded+1c:wght@400;500;700&family=Great+Vibes&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: { fairyPink:'#ffb7c5', fairyGold:'#f3e5ab', fairyGoldDeep:'#d4af37',
+                  fairyCream:'#fffbf5', fairyLavender:'#e6e6fa', fairyRose:'#ff9ebb', fairyMint:'#d1f8ef' },
+        fontFamily: { rounded:['"M PLUS Rounded 1c"','sans-serif'],
+                       fairy:['"Cinzel Decorative"','serif'],
+                       script:['"Great Vibes"','cursive'] }
+      }
+    }
+  }
+</script>
+<style>
+  body{font-family:'M PLUS Rounded 1c',sans-serif;
+       background:linear-gradient(135deg,#fff0f5 0%,#fffbf5 50%,#f0f8ff 100%);
+       color:#4a3b32;overflow-x:hidden;user-select:none}
+  .glass-card{background:rgba(255,255,255,.75);backdrop-filter:blur(16px);
+              -webkit-backdrop-filter:blur(16px);
+              border:1px solid rgba(255,228,235,.8);
+              box-shadow:0 10px 30px rgba(255,182,193,.18)}
+  .gold-text{background:linear-gradient(135deg,#d4af37,#f3e5ab,#d4af37);
+             -webkit-background-clip:text;background-clip:text;color:transparent}
+  #three-bg{position:fixed;inset:0;z-index:-1;opacity:.6}
+
+  /* ★ ハブ用のステージナビ（追加） */
+  .hub-stage-link{padding:14px 18px;border-radius:18px;
+                  display:flex;align-items:center;gap:12px;cursor:pointer;
+                  transition:transform .15s,box-shadow .15s}
+  .hub-stage-link:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.08)}
+
+  /* ★ ハブ側で妖精ミニカードも出す */
+  .hub-mini-fairy{position:relative;border-radius:20px;overflow:hidden;
+                  background:rgba(255,255,255,.85);border:2px solid var(--fc,#ff4081);
+                  padding:12px;display:flex;flex-direction:column;align-items:center}
+  .hub-mini-fairy img{width:200px;height:auto;max-height:170px;object-fit:contain;
+                       filter:drop-shadow(0 8px 14px rgba(0,0,0,.15))}
+  .hub-mini-fairy .ph-circle{width:160px;height:160px;border-radius:50%;
+       background:radial-gradient(circle,color-mix(in srgb,var(--fc,#ff4081) 30%,#fff) 0%,transparent 70%);
+       border:3px dashed var(--fc,#ff4081);display:flex;align-items:center;justify-content:center;
+       font-size:60px;color:var(--fc,#ff4081)}
+</style>
+</head>
+<body>
+<div id="three-bg"></div>
+
+<nav class="w-full glass-card sticky top-0 z-30 px-4 sm:px-6 py-3 flex items-center justify-between border-b border-pink-100/50">
+  <div class="flex items-center space-x-2">
+    <span class="text-2xl">🧚‍♀️</span>
+    <h1 class="font-fairy text-lg sm:text-xl font-bold gold-text">WebAR Fairy World</h1>
+  </div>
+  <div class="hidden md:flex items-center gap-3 text-xs font-bold text-pink-700">
+    <span class="px-2 py-1 rounded-full bg-pink-100">トップ</span>
+    <a href="#view-ar" class="px-2 py-1 rounded-full bg-amber-100 hover:bg-amber-200">妖精と触れ合う</a>
+    <a href="#view-map" class="px-2 py-1 rounded-full bg-green-100 hover:bg-green-200">マップ</a>
+    <a href="#view-collection" class="px-2 py-1 rounded-full bg-yellow-100 hover:bg-yellow-200">図鑑</a>
+  </div>
+  <button onclick="openStagePicker()" class="px-3 py-1.5 rounded-full bg-gradient-to-r from-pink-500 to-amber-500 text-white text-xs sm:text-sm font-bold shadow hover:shadow-pink-300/40">
+    🎬 ARステージ選択
+  </button>
+</nav>
+
+<main class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-12 flex flex-col gap-8">
+
+  <!-- ★ ハブ入口：妖精ミニカードグリッド（追加） -->
+  <section id="view-home" class="view-section w-full flex flex-col items-center py-6">
+    <div class="text-center mb-6">
+      <span class="text-xs font-bold tracking-widest text-pink-500 uppercase px-3 py-1 rounded-full bg-pink-100">Hub Home</span>
+      <h2 class="font-fairy text-3xl sm:text-4xl font-bold gold-text mt-2">妖精たちの世界へようこそ</h2>
+      <p class="text-sm text-pink-900/70 mt-1">出会いたい妖精をタップすると、対応する AR ステージが開きます。</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full" id="hubFairyGrid">
+      <!-- JS で FAIRIES から自動生成 -->
+    </div>
+
+    <!-- ★ ステージ直接リンク -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full mt-6">
+      <div class="hub-stage-link glass-card border-l-4 border-pink-400" onclick="goStage(1)">
+        <span class="text-3xl">🎯</span>
+        <div>
+          <div class="text-[11px] text-pink-600 font-bold">CLASSIC STAGE</div>
+          <div class="text-base font-bold text-gray-800">単品ローズ AR</div>
+          <div class="text-[11px] text-gray-500">index1.html</div>
+        </div>
+      </div>
+      <div class="hub-stage-link glass-card border-l-4 border-rose-400" onclick="goStage(2)">
+        <span class="text-3xl">🌹☁️</span>
+        <div>
+          <div class="text-[11px] text-rose-600 font-bold">STAGE 2/4</div>
+          <div class="text-base font-bold text-gray-800">おともだち登場</div>
+          <div class="text-[11px] text-gray-500">index2.html</div>
+        </div>
+      </div>
+      <div class="hub-stage-link glass-card border-l-4 border-yellow-400" onclick="goStage(3)">
+        <span class="text-3xl">✨</span>
+        <div>
+          <div class="text-[11px] text-yellow-600 font-bold">STAGE 3/4</div>
+          <div class="text-base font-bold text-gray-800">新しい仲間</div>
+          <div class="text-[11px] text-gray-500">index3.html</div>
+        </div>
+      </div>
+      <div class="hub-stage-link glass-card border-l-4 border-amber-400" onclick="goStage(4)">
+        <span class="text-3xl">🍃</span>
+        <div>
+          <div class="text-[11px] text-amber-600 font-bold">STAGE 4/4</div>
+          <div class="text-base font-bold text-gray-800">フィナーレ</div>
+          <div class="text-[11px] text-gray-500">index4.html</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-ar" class="view-section w-full flex flex-col items-center py-6 hidden">
+    <div class="text-center mb-6">
+      <span class="text-xs font-bold tracking-widest text-amber-600 uppercase px-3 py-1 rounded-full bg-yellow-100">AR LIVE</span>
+      <h2 class="font-fairy text-3xl font-bold gold-text mt-2">妖精と触れ合おう</h2>
+      <p class="text-sm text-pink-900/70">「カメラAR切替」を押すとこの画面内で妖精を試せます。</p>
+    </div>
+    <div class="glass-card p-6 rounded-3xl max-w-md text-center">
+      <p class="text-sm text-gray-700">本格的な AR は以下の「AR ステージ選択」から飛ぶのがおすすめです。</p>
+      <button onclick="openStagePicker()" class="mt-4 px-4 py-2 rounded-full bg-pink-500 text-white font-bold">🎬 ARステージ選択を開く</button>
+    </div>
+  </section>
+</main>
+
+<footer class="w-full py-4 text-center z-10 glass-card text-xs text-pink-800/70 border-t border-pink-100/50 mt-auto">
+  <p>WebAR Fairy World &copy; 2026 | Fantasy Fairytale Aesthetic Experience</p>
+</footer>
+
+<!-- ★ この HTML は単独でも動くが、妖精を発見したらカードに「発見」バッジを立てる -->
+<script src="fairies.js"></script>
+<script>
+  /* ===== ステージ遷移 ===== */
+  function goStage(n){
+    const map = { 1:'index1.html', 2:'index2.html', 3:'index3.html', 4:'index4.html' };
+    window.location.href = map[n];
+  }
+  function openStagePicker(){
+    /* ハブ内の妖精カードグリッドへスクロール */
+    const grid = document.getElementById('hubFairyGrid');
+    if (grid) grid.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  /* ===== ハブ上の妖精カード生成（PNG を直接表示） ===== */
+  (function buildHubGrid(){
+    const wrap = document.getElementById('hubFairyGrid');
+    if (!wrap || !window.FAIRIES) return;
+    FAIRIES.forEach((f, idx) => {
+      const card = document.createElement('div');
+      card.className = 'hub-mini-fairy';
+      card.style.setProperty('--fc', f.color);
+      card.dataset.id = f.id;
+      card.innerHTML = '';
+      const media = document.createElement('div');
+
+      if (f.status === 'ready' && f.frames) {
+        const img = document.createElement('img');
+        img.alt = f.name;
+        const probe = new Image();
+        probe.onload = ()=>{ img.src = probe.src; };
+        probe.onerror = ()=>{
+          const ph = document.createElement('div');
+          ph.className = 'ph-circle';
+          ph.textContent = (f.role||'').split(' ')[0] || '❓';
+          media.appendChild(ph);
+        };
+        probe.src = f.id + '_1.png';
+        media.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'ph-circle';
+        ph.textContent = (f.role||'').split(' ')[0] || '✨';
+        ph.title = 'PNG を ' + f.id + '_1.png で配置してください';
+        media.appendChild(ph);
+      }
+      card.appendChild(media);
+
+      const name = document.createElement('div');
+      name.className = 'mt-2 font-bold text-base text-gray-800';
+      name.textContent = f.name;
+      card.appendChild(name);
+      const role = document.createElement('div');
+      role.className = 'text-xs text-pink-600 font-semibold';
+      role.textContent = f.role;
+      card.appendChild(role);
+      const btn = document.createElement('button');
+      btn.className = 'mt-3 px-4 py-2 rounded-full text-white font-bold text-sm shadow';
+      btn.style.background = f.accent;
+      btn.textContent = '🎬 AR ステージへ';
+      btn.onclick = ()=>{
+        try{
+          const key='ar_party_discovered';
+          const data=JSON.parse(localStorage.getItem(key)||'{}');
+          data[f.id] = { name:f.name, code:f.bleCode||'', area:f.area||'', ts:Date.now() };
+          localStorage.setItem(key, JSON.stringify(data));
+        }catch(e){}
+        /* どのステージに居るべきか */
+        const stageFor = { rose:'index2.html', ria:'index2.html', fairy3:'index3.html', fairy4:'index4.html' };
+        window.location.href = stageFor[f.id] || 'index2.html';
+      };
+      card.appendChild(btn);
+
+      wrap.appendChild(card);
+    });
+  })();
+
+  /* ===== 発見バッジを反映 ===== */
+  function showDiscoveredBadges(){
+    const map = (window.FairySequencer && FairySequencer.getDiscoveredMap) ? FairySequencer.getDiscoveredMap() : {};
+    document.querySelectorAll('.hub-mini-fairy').forEach(card => {
+      const id = card.dataset.id;
+      if (map[id]) {
+        const tag = document.createElement('div');
+        tag.className = 'absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700';
+        tag.textContent = '発見済み ✓';
+        card.style.position = 'relative';
+        card.appendChild(tag);
+      }
+    });
+  }
+  window.addEventListener('DOMContentLoaded', showDiscoveredBadges);
+
+  /* ===== Three.js 背景 ===== */
+  function initThreeBg(){
+    const c = document.getElementById('three-bg');
+    if (!c) return;
+    try{
+      const r = new THREE.WebGLRenderer({ alpha:true });
+      r.setSize(window.innerWidth, window.innerHeight);
+      c.appendChild(r.domElement);
+      const scene = new THREE.Scene();
+      const cam = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+      cam.position.z = 5;
+      const g = new THREE.BufferGeometry();
+      const v = []; for (let i=0;i<300;i++) v.push((Math.random()-.5)*20, (Math.random()-.5)*20, (Math.random()-.5)*20);
+      g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+      const m = new THREE.PointsMaterial({ color:0xffd700, size:0.06, transparent:true, opacity:0.7 });
+      const ps = new THREE.Points(g, m);
+      scene.add(ps);
+      (function tick(){ ps.rotation.y += 0.0008; r.render(scene, cam); requestAnimationFrame(tick); })();
+    }catch(e){}
+  }
+  window.addEventListener('DOMContentLoaded', initThreeBg);
+</script>
+
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
