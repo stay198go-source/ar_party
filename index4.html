@@ -25,6 +25,13 @@
   #confetti{position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden}
   .confetti{position:absolute;top:-10%;border-radius:50%;opacity:0;animation:confettiFall linear infinite}
   @keyframes confettiFall{0%{transform:translateY(0) rotate(0);opacity:0}15%{opacity:.55}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+/* 📷 カメラ起動中はコメント（吹き出し）を隠す設定 */
+body.cam-active .speech, 
+  body.cam-active .bubble, 
+  body.cam-active [class*="comment"], 
+  body.cam-active [class*="speech"] {
+    display: none !important;
+  }
 </style>
 </head>
 <body>
@@ -66,11 +73,44 @@
   (function(){
     const btn = document.getElementById('camBtn'), vid = document.getElementById('camBg');
     let on = false, stream = null;
+    
     btn.addEventListener('click', async ()=>{
-      if(on){ if(stream) stream.getTracks().forEach(t=>t.stop()); vid.style.display='none'; btn.textContent='📷 カメラで見る'; on=false; return; }
+      // ▼ ステージ（#stage）の中にある、妖精のまわりのコメントや吹き出し要素をすべて取得して隠す
+      const stage = document.getElementById('stage');
+      const commentElements = stage ? stage.querySelectorAll('div, span') : [];
+
+      if(on){ 
+        if(stream) stream.getTracks().forEach(t=>t.stop()); 
+        vid.style.display='none'; 
+        btn.textContent='📷 カメラで見る'; 
+        
+        // カメラをとめたとき：コメントを元に戻す
+        commentElements.forEach(el => {
+          if (el.dataset.originalDisplay !== undefined) {
+            el.style.display = el.dataset.originalDisplay;
+          }
+        });
+        
+        on=false; 
+        return; 
+      }
       try{
         stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:'environment'} }, audio:false });
-        vid.srcObject = stream; await vid.play(); vid.style.display='block'; btn.textContent='📷 カメラをとめる'; on=true;
+        vid.srcObject = stream; 
+        await vid.play(); 
+        vid.style.display='block'; 
+        btn.textContent='📷 カメラをとめる'; 
+        
+        // カメラを起動したとき：妖精以外のコメント部分を判定して非表示にする
+        commentElements.forEach(el => {
+          // 妖精の画像本体ではなく、文字や吹き出しが含まれていそうな要素を対象にする
+          if (el.innerText && el.innerText.trim() !== '' && el.children.length < 3) {
+            el.dataset.originalDisplay = el.style.display;
+            el.style.display = 'none';
+          }
+        });
+        
+        on=true;
       }catch(e){ alert('カメラが使えませんでした。ブラウザのカメラ許可をたしかめてね'); }
     });
   })();
