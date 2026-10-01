@@ -67,6 +67,11 @@
   .bottom-bar { position:fixed; left:0; right:0; bottom:0; z-index:40; padding:14px 16px calc(24px + env(safe-area-inset-bottom,0px));
     display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; pointer-events:none;
     background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,0)); }
+  .mode-pill { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(14px + env(safe-area-inset-bottom,0px)); z-index:41; display:none; flex-direction:column; align-items:center; gap:6px;
+    background:rgba(0,0,0,.55); border-radius:16px; padding:7px 14px; font-size:12px; font-weight:600; text-align:center; max-width:90vw; }
+  .mode-pill.on { display:flex; }
+  .mode-pill button { display:none; background:#fff; color:#d81b60; border:none; border-radius:999px; padding:7px 14px; font-size:12px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .mode-pill.can-ask button { display:inline-block; }
   .btn { pointer-events:auto; display:none; align-items:center; gap:8px; text-decoration:none; color:#fff; border:none; border-radius:999px; padding:13px 22px;
     font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; background:linear-gradient(135deg,#ff8fbb,#ff4081); box-shadow:0 6px 20px rgba(255,64,129,.5); }
   .btn.show { display:inline-flex; animation:bounceIn .6s both; }
@@ -104,6 +109,8 @@
 <div class="hint" id="hint"></div>
 <div class="toast" id="toast">📖 ずかんにとうろくしたよ！</div>
 <div class="bubble" id="bubble"></div>
+
+<div class="mode-pill" id="modePill"><span id="modeText"></span><button id="sensorBtn" type="button">📡 向きセンサーをオンにする</button></div>
 
 <div class="bottom-bar">
   <a class="btn" id="homeBtn" href="webar_fairy_world.html">🏠 ホームへ戻る</a>
@@ -168,6 +175,7 @@
   let mode = 'wait';               // wait | gyro | drag
   let heading0 = 0;                // はじめに向いていた方角
   const drag = { yaw:0, pitch:0, active:false, moved:0, lx:0, ly:0 };
+  const user = { yaw:0, pitch:0 };    // センサーのモードで、ゆびでずらした分
 
   function applyR(a, b, g, v){      // R = Rz(a)·Rx(b)·Ry(g)
     const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), cg = Math.cos(g), sg = Math.sin(g);
@@ -208,11 +216,19 @@
     return Math.atan2(b.u[0], b.u[1]);
   }
 
+  // センサーが本当に動いているかの見張り（動かない・固まっている時は、ゆびモードに切りかえる）
+  const sensor = { n:0, minA:1e9, maxA:-1e9, minB:1e9, maxB:-1e9, minG:1e9, maxG:-1e9 };
+  function resetSensorStats(){ sensor.minA = sensor.minB = sensor.minG = 1e9; sensor.maxA = sensor.maxB = sensor.maxG = -1e9; }
   window.addEventListener('deviceorientation', e => {
     if(e.beta == null || e.gamma == null || e.alpha == null) return;
     gyro = { a:e.alpha*D2R, b:e.beta*D2R, g:e.gamma*D2R };
-    if(mode === 'wait'){ mode = 'gyro'; heading0 = headingOf(basisFromGyro()); }
+    sensor.n++;
+    sensor.minA = Math.min(sensor.minA, e.alpha); sensor.maxA = Math.max(sensor.maxA, e.alpha);
+    sensor.minB = Math.min(sensor.minB, e.beta);  sensor.maxB = Math.max(sensor.maxB, e.beta);
+    sensor.minG = Math.min(sensor.minG, e.gamma); sensor.maxG = Math.max(sensor.maxG, e.gamma);
+    if(mode === 'wait'){ mode = 'gyro'; heading0 = headingOf(basisFromGyro()); updatePill(); }
   }, {passive:true});
+  const sensorMoved = () => (sensor.maxA - sensor.minA > 0.05) || (sensor.maxB - sensor.minB > 0.05) || (sensor.maxG - sensor.minG > 0.05);
 
   // ドラッグで見回す（ジャイロが無いPC・許可されなかった時）
   document.addEventListener('pointerdown', e => {
@@ -222,10 +238,13 @@
     if(!drag.active) return;
     const dx = e.clientX - drag.lx, dy = e.clientY - drag.ly;
     drag.lx = e.clientX; drag.ly = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+    const k = dragRad();
     if(mode === 'drag'){
-      const k = dragRad();
       drag.yaw  += dx * k;                                         // 右にドラッグ → 右を向く
       drag.pitch = Math.max(-1.2, Math.min(1.2, drag.pitch - dy * k));  // 上にドラッグ → 上を向く
+    } else if(mode === 'gyro' && drag.moved > 14){
+      // センサーのモードでも、ゆびで「向き」を少しずらせる（ずれの手直し）
+      user.yaw += dx * k; user.pitch = Math.max(-1.2, Math.min(1.2, user.pitch - dy * k));
     }
   });
   document.addEventListener('pointerup', e => {
@@ -256,8 +275,9 @@
   const hideYaw = F.search.yaw * D2R, hidePitch = F.search.pitch * D2R;
   let assist = 0;                       // 0 = かくれ場所どおり ／ 1 = だいぶ近づいてくる
   function fairyDir(){
-    const yaw = heading0 + hideYaw * (1 - 0.8 * assist);
-    const pit = hidePitch * (1 - 0.6 * assist);
+    let yaw = heading0 + hideYaw * (1 - 0.8 * assist);
+    let pit = hidePitch * (1 - 0.6 * assist);
+    if(mode === 'gyro'){ yaw -= user.yaw; pit = clamp(pit - user.pitch, -1.3, 1.3); }
     return [Math.sin(yaw)*Math.cos(pit), Math.cos(yaw)*Math.cos(pit), Math.sin(pit)];
   }
 
@@ -302,7 +322,7 @@
     const dt = Math.min(64, now - last); last = now;
     if(!S.started) return;
     const z = sizes(), W = z.W, H = z.H, f = focal();
-    if(!S.found) assist = clamp(((now - S.startAt) / 1000 - 20) / 25, 0, 1);   // 20秒たつと、25秒かけて近づく
+    if(!S.found) assist = clamp(((now - S.startAt) / 1000 - 12) / 18, 0, 1);   // 12秒たつと、18秒かけて近づく
 
     // --- カメラの向きから、妖精が画面のどこに見えるか ---
     let basis = null;
@@ -318,6 +338,7 @@
       vis = (tx > -z.imgW*0.3 && tx < W + z.imgW*0.3 && ty > -z.imgH*0.3 && ty < H + z.imgH*0.3);
     }
     S.visible = vis;
+    S.angle = Math.acos(clamp(cz, -1, 1)) * 180 / Math.PI;    // 妖精まで あと何度か
 
     let x, y, sc = 1;
     if(!S.found){
@@ -365,6 +386,8 @@
     if(inCenter) setHint('そのまま…そのまま…✨');
     else if(vis) setHint('いた！ 画面の真ん中に合わせてみてね 🔍');
     else if(assist > 0.05) setHint('✨ ' + F.name + 'がちょっと近づいてきたよ。矢印のほうを見てみてね');
+    else if(S.angle < 35) setHint('もうすこし！ 矢印のほうへ、ちょっとだけ…');
+    else if(S.angle < 75 && searchSec > 6) setHint('ちかいよ！ 矢印のほうへ体を向けてみてね');
     else if(searchSec > 9) setHint(F.hint);
     else setHint(mode === 'drag' ? '👆 ゆびを動かした向きに、まわりを見回せるよ（矢印キーもOK）' : '📱 スマホをゆっくり動かして、まわりを見回してね');
   }
@@ -419,7 +442,7 @@
     S.found = true; S.foundAt = performance.now();
     S.fromX = S._x || window.innerWidth/2; S.fromY = S._y || window.innerHeight/2; S.fromS = 1;
     ring.classList.remove('on'); arrow.classList.remove('on');
-    hint.classList.add('hide');
+    hint.classList.add('hide'); pill.classList.remove('on');
     FairyStore.mark(F);
     if(navigator.vibrate) try{ navigator.vibrate([60, 40, 90]); }catch(e){}
 
@@ -510,6 +533,31 @@
     return true;
   }
 
+  // 画面の下の「いまのモード」表示
+  const pill = $('modePill'), modeText = $('modeText'), sensorBtn = $('sensorBtn');
+  const canAsk = (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function');
+  function updatePill(msg){
+    if(!S.started){ pill.classList.remove('on'); return; }
+    pill.classList.add('on');
+    if(S.found){ pill.classList.remove('on'); return; }
+    if(mode === 'gyro'){ modeText.textContent = '📡 スマホを動かして さがすモード（ゆびでドラッグすると、向きをずらせるよ）'; pill.classList.remove('can-ask'); }
+    else { modeText.textContent = msg || '👆 ゆびでドラッグして さがすモード（スマホを動かしても変わらないよ）'; pill.classList.toggle('can-ask', canAsk); }
+  }
+  sensorBtn.addEventListener('click', async () => {
+    const before = sensor.n;
+    const ok = await askMotion();
+    resetSensorStats();
+    setTimeout(() => {
+      if(ok && sensor.n > before + 2){
+        mode = 'gyro'; gyro = gyro || {a:0,b:Math.PI/2,g:0}; heading0 = headingOf(basisFromGyro()); user.yaw = 0; user.pitch = 0; S.startAt = performance.now();
+        updatePill();
+        bubble.textContent = '向きセンサーがオンになったよ！ スマホを動かしてみてね 📱'; bubble.classList.add('show'); setTimeout(() => bubble.classList.remove('show'), 3500);
+      } else {
+        updatePill('👆 向きセンサーが使えませんでした。右下のコンパスのボタンで「Safariで開く」と動くことがあります');
+      }
+    }, 1200);
+  });
+
   startBtn.addEventListener('click', async () => {
     startBtn.disabled = true; startBtn.textContent = '準備中…';
     // iOS は「ユーザーのタップの直後」に許可を聞く必要がある。先に向きセンサー、つぎにカメラ。
@@ -520,6 +568,8 @@
     S.started = true; S.startAt = performance.now();
     if(mode === 'gyro' && gyro) heading0 = headingOf(basisFromGyro());   // 「はじめる」を押した時に向いていた方向を基準にする
 
+    updatePill();
+    resetSensorStats();
     // 向きセンサーの値が来るか、少し待つ
     setTimeout(() => {
       if(mode === 'wait'){
@@ -527,8 +577,18 @@
         const why = motionOK ? 'このたんまつは向きセンサーが使えないので、' : '向きセンサーが許可されなかったので、';
         bubble.textContent = why + 'ゆびを動かした向きに見回せるよ 👆';
         bubble.classList.add('show'); setTimeout(() => bubble.classList.remove('show'), 4200);
+        updatePill();
       }
     }, 1500);
+    // 4秒たっても数字がぜんぜん変わらない（＝センサーが固まっている）時は、ゆびモードにする
+    setTimeout(() => {
+      if(mode === 'gyro' && !sensorMoved()){
+        mode = 'drag'; drag.yaw = 0; drag.pitch = 0; heading0 = 0;
+        bubble.textContent = '向きセンサーが動いていないので、ゆびで見回すモードにしたよ 👆';
+        bubble.classList.add('show'); setTimeout(() => bubble.classList.remove('show'), 4200);
+        updatePill('👆 ゆびでドラッグして さがすモード（このブラウザでは、スマホを動かしても変わりません）');
+      }
+    }, 4500);
     if(!camOK){
       bubble.textContent = 'カメラが使えなかったので、かわりの背景で遊べるよ（ブラウザのカメラ許可をたしかめてね）';
       bubble.classList.add('show'); setTimeout(() => bubble.classList.remove('show'), 5000);

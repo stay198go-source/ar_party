@@ -47,7 +47,7 @@ window.FAIRIES = [
     thanks:['見つけてくれてありがとう！💕','わたしは雲の妖精リア。ずっとかくれてたんだよ☁️',
             'ローズとも、もう仲良しなんだ🌹','タップしてみて。虹を描いてあげる🌈'],
     entry:'floatDown', delay:1800, bleCode:'C', area:'天空の泉', status:'ready',
-    search:{ yaw:70, pitch:10 },
+    search:{ yaw:50, pitch:6 },
     hint:'☁️ 空のほうから、ふわふわの気配がするよ…', },
 
   /* ---------- 3. 光の妖精 ティンク ---------- */
@@ -65,7 +65,7 @@ window.FAIRIES = [
     thanks:['見つけてくれて、ありがとう！✨','キラキラの妖精ティンクだよ。','どうしてわかったの？ すごいね！',
             'タップしてみて。ぴょんっ！'],
     entry:'sparkleBurst', delay:3200, bleCode:'T', area:'光の花壇', status:'ready',
-    search:{ yaw:-85, pitch:20 },
+    search:{ yaw:-60, pitch:12 },
     hint:'✨ キラキラ光るものを、さがしてみてね', },
 
   /* ---------- 4. 森の妖精 リリー ---------- */
@@ -82,7 +82,7 @@ window.FAIRIES = [
     captions:['森の声を届ける','そよ風のささやき'],
     thanks:['見つけてくれてありがとう🍃','森の妖精リリーです。','じっと待ってたら、会えてうれしい…','タップしてみて。そよ風を送るね'],
     entry:'windSweep', delay:4600, bleCode:'L', area:'神秘の森', status:'ready',
-    search:{ yaw:155, pitch:-2 },
+    search:{ yaw:115, pitch:0 },
     hint:'🍃 うしろのほうも、ぐるっとたしかめてみて', }
 ];
 
