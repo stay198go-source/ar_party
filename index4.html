@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AR Party 🌹☁️✨🍃 4 人の妖精フィナーレ</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;overflow:hidden;position:relative;font-family:'M PLUS Rounded 1c','Hiragino Maru Gothic Pro',sans-serif;
+       background:linear-gradient(135deg,#fff0c4 0%,#ffdde1 50%,#d7e9fc 100%);color:#4a3b32;-webkit-user-select:none;user-select:none}
+  #topbar,#bottombar{position:fixed;left:0;right:0;z-index:100;background:rgba(255,255,255,.78);
+       -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);display:flex;align-items:center}
+  #topbar{top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.5)}
+  #bottombar{bottom:0;padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px));justify-content:center;gap:8px;border-top:1px solid rgba(255,255,255,.5)}
+  #topbar h1{margin:0;font-size:14px;font-weight:700;color:#4a3b32}
+  #topbar h1 small{display:block;font-size:10px;color:#777;font-weight:500}
+  .nav-btn{background:linear-gradient(90deg,#ff4081,#ff9800);color:#fff;border:none;padding:9px 16px;border-radius:20px;white-space:nowrap;
+           font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.2);text-decoration:none;display:inline-block;font-family:inherit}
+  .nav-btn:disabled{opacity:.45;cursor:not-allowed}
+  .ghost-btn{background:rgba(255,255,255,.7);color:#555;border:1px solid #ccc;padding:10px 16px;border-radius:22px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  /* ステージ：上バーと下バーの間ぜんぶ */
+  #camBg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;display:none}
+  #stage{z-index:3;position:fixed;left:0;right:0;top:calc(56px + env(safe-area-inset-top,0px));bottom:calc(66px + env(safe-area-inset-bottom,0px));overflow:hidden}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden}
+  .confetti{position:absolute;top:-10%;border-radius:50%;opacity:0;animation:confettiFall linear infinite}
+  @keyframes confettiFall{0%{transform:translateY(0) rotate(0);opacity:0}15%{opacity:.55}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+<video id="camBg" playsinline muted autoplay></video>
+<div id="confetti"></div>
+<nav id="topbar">
+  <h1>🌹☁️✨🍃 4 人の妖精フィナーレ
+    <small>data-driven sequencer · 4/4</small></h1>
+  <a class="nav-btn" href="webar_fairy_world.html">🏠 ホームへ戻る</a>
+</nav>
+
+<div id="stage"></div>
+
+<nav id="bottombar">
+  <button class="ghost-btn" onclick="location.href='webar_fairy_world.html'">◀ ホームへ</button>
+  <button class="ghost-btn" id="camBtn">📷 カメラで見る</button>
+  <button class="nav-btn" id="done-btn" disabled
+          onclick="location.href='zukan.html'">📖 ずかんを見る</button>
+</nav>
+
+<script src="fairies.js"></script>
+<script>
+  (function confetti(){
+    const wrap = document.getElementById('confetti');
+    const palette = ['#ff80ab','#81d4fa','#ffe082','#c5e1a5','#ce93d8'];
+    for (let i=0; i<22; i++){
+      const c = document.createElement('div');
+      c.className='confetti';
+      c.style.left = Math.random()*100+'vw';
+      c.style.background = palette[Math.floor(Math.random()*palette.length)];
+      c.style.animationDuration = (Math.random()*4+4)+'s';
+      c.style.animationDelay = (Math.random()*6)+'s';
+      const s = Math.random()*6+6;
+      c.style.width = c.style.height = s+'px';
+      wrap.appendChild(c);
+    }
+  })();
+  /* 📷 カメラで見る：4人がまわりの景色にいっしょに浮かぶ */
+  (function(){
+    const btn = document.getElementById('camBtn'), vid = document.getElementById('camBg');
+    let on = false, stream = null;
+    btn.addEventListener('click', async ()=>{
+      if(on){ if(stream) stream.getTracks().forEach(t=>t.stop()); vid.style.display='none'; btn.textContent='📷 カメラで見る'; on=false; return; }
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:'environment'} }, audio:false });
+        vid.srcObject = stream; await vid.play(); vid.style.display='block'; btn.textContent='📷 カメラをとめる'; on=true;
+      }catch(e){ alert('カメラが使えませんでした。ブラウザのカメラ許可をたしかめてね'); }
+    });
+  })();
+  const stage = document.getElementById('stage');
+  const IDS = ['rose','ria','tink','lily'];
+  FairySequencer.buildNodes(stage, { onlyIds: IDS });
+  FairySequencer.runSequence(stage, { onlyIds: IDS });
+  setTimeout(()=>{ const b = document.getElementById('done-btn'); if(b) b.disabled = false; }, 7500);
+</script>
+</body>
+</html>
