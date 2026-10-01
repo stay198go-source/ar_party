@@ -223,9 +223,9 @@
     const dx = e.clientX - drag.lx, dy = e.clientY - drag.ly;
     drag.lx = e.clientX; drag.ly = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
     if(mode === 'drag'){
-      const f = focal();
-      drag.yaw   -= dx / f;
-      drag.pitch  = Math.max(-1.2, Math.min(1.2, drag.pitch + dy / f));
+      const k = dragRad();
+      drag.yaw  += dx * k;                                         // 右にドラッグ → 右を向く
+      drag.pitch = Math.max(-1.2, Math.min(1.2, drag.pitch - dy * k));  // 上にドラッグ → 上を向く
     }
   });
   document.addEventListener('pointerup', e => {
@@ -233,6 +233,17 @@
     drag.active = false;
     if(wasTap) onTap(e.clientX, e.clientY);
   });
+  // パソコンでは矢印キーでも見回せる
+  document.addEventListener('keydown', e => {
+    if(mode !== 'drag') return;
+    const st = 8 * D2R;
+    if(e.key === 'ArrowLeft')  drag.yaw -= st;
+    if(e.key === 'ArrowRight') drag.yaw += st;
+    if(e.key === 'ArrowUp')    drag.pitch = Math.min(1.2, drag.pitch + st);
+    if(e.key === 'ArrowDown')  drag.pitch = Math.max(-1.2, drag.pitch - st);
+  });
+  // ドラッグの感度：画面の大きさにかかわらず「600px で約110°」
+  function dragRad(){ return (110 * D2R) / Math.min(window.innerWidth, 600); }
 
   function focal(){
     const W = window.innerWidth, H = window.innerHeight;
@@ -243,9 +254,11 @@
   // 妖精の「かくれている方向」
   // ============================================================
   const hideYaw = F.search.yaw * D2R, hidePitch = F.search.pitch * D2R;
+  let assist = 0;                       // 0 = かくれ場所どおり ／ 1 = だいぶ近づいてくる
   function fairyDir(){
-    const yaw = heading0 + hideYaw;
-    return [Math.sin(yaw)*Math.cos(hidePitch), Math.cos(yaw)*Math.cos(hidePitch), Math.sin(hidePitch)];
+    const yaw = heading0 + hideYaw * (1 - 0.8 * assist);
+    const pit = hidePitch * (1 - 0.6 * assist);
+    return [Math.sin(yaw)*Math.cos(pit), Math.cos(yaw)*Math.cos(pit), Math.sin(pit)];
   }
 
   // ============================================================
@@ -289,6 +302,7 @@
     const dt = Math.min(64, now - last); last = now;
     if(!S.started) return;
     const z = sizes(), W = z.W, H = z.H, f = focal();
+    if(!S.found) assist = clamp(((now - S.startAt) / 1000 - 20) / 25, 0, 1);   // 20秒たつと、25秒かけて近づく
 
     // --- カメラの向きから、妖精が画面のどこに見えるか ---
     let basis = null;
@@ -350,8 +364,9 @@
     const searchSec = (now - S.startAt) / 1000;
     if(inCenter) setHint('そのまま…そのまま…✨');
     else if(vis) setHint('いた！ 画面の真ん中に合わせてみてね 🔍');
+    else if(assist > 0.05) setHint('✨ ' + F.name + 'がちょっと近づいてきたよ。矢印のほうを見てみてね');
     else if(searchSec > 9) setHint(F.hint);
-    else setHint(mode === 'drag' ? '👆 ゆびでドラッグして、まわりを見回してね' : '📱 スマホをゆっくり動かして、まわりを見回してね');
+    else setHint(mode === 'drag' ? '👆 ゆびを動かした向きに、まわりを見回せるよ（矢印キーもOK）' : '📱 スマホをゆっくり動かして、まわりを見回してね');
   }
   let lastArrowSpark = 0;
   function updateArrow(now, vis, cx, cy, W, H){
@@ -503,13 +518,14 @@
     startVeil.classList.add('hide');
     setTimeout(() => startVeil.style.display = 'none', 500);
     S.started = true; S.startAt = performance.now();
+    if(mode === 'gyro' && gyro) heading0 = headingOf(basisFromGyro());   // 「はじめる」を押した時に向いていた方向を基準にする
 
     // 向きセンサーの値が来るか、少し待つ
     setTimeout(() => {
       if(mode === 'wait'){
         mode = 'drag'; drag.yaw = 0; drag.pitch = 0; heading0 = 0;
         const why = motionOK ? 'このたんまつは向きセンサーが使えないので、' : '向きセンサーが許可されなかったので、';
-        bubble.textContent = why + 'ゆびでドラッグして見回してね 👆';
+        bubble.textContent = why + 'ゆびを動かした向きに見回せるよ 👆';
         bubble.classList.add('show'); setTimeout(() => bubble.classList.remove('show'), 4200);
       }
     }, 1500);
@@ -518,6 +534,21 @@
       bubble.classList.add('show'); setTimeout(() => bubble.classList.remove('show'), 5000);
     }
   });
+
+
+  // 調べる用 ?debug=1 … 向きセンサーの状態を画面の左下に出す
+  if(new URLSearchParams(location.search).get('debug') === '1'){
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:6px;bottom:90px;z-index:99;background:rgba(0,0,0,.65);color:#9f9;font:11px/1.4 monospace;padding:6px 8px;border-radius:8px;white-space:pre;pointer-events:none';
+    document.body.appendChild(box);
+    setInterval(() => {
+      const d = fairyDir(), b = (mode === 'gyro' && gyro) ? basisFromGyro() : (mode === 'drag' ? basisFromDrag() : null);
+      box.textContent = 'mode=' + mode + '  who=' + F.id + '\n' +
+        'heading0=' + (heading0/D2R).toFixed(0) + '  assist=' + assist.toFixed(2) + '\n' +
+        (b ? 'cz=' + dot(d,b.f).toFixed(2) + ' cx=' + dot(d,b.r).toFixed(2) + ' cy=' + dot(d,b.u).toFixed(2) : 'no basis') + '\n' +
+        'visible=' + S.visible + ' lock=' + S.lock.toFixed(2);
+    }, 250);
+  }
 
   // 開発用 ?dev=1 … 「はじめる」を自動で押す
   if(new URLSearchParams(location.search).get('dev') === '1') setTimeout(() => startBtn.click(), 300);
