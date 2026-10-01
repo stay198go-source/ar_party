@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>📖 妖精ずかん ― WebAR Fairy World</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;min-height:100%}
+  body{font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic Pro",sans-serif;color:#4a3b32;
+    background:linear-gradient(160deg,#fff4f7 0%,#fdeef6 38%,#eef0ff 100%);background-attachment:fixed;
+    -webkit-tap-highlight-color:transparent;padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+
+  /* ほんのりキラキラの背景 */
+  .bgdots{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .bgdots i{position:absolute;width:6px;height:6px;border-radius:50%;background:#ffd54f;opacity:.0;animation:twinkle 5s ease-in-out infinite}
+  @keyframes twinkle{0%,100%{opacity:0;transform:scale(.5)}50%{opacity:.7;transform:scale(1.2)}}
+
+  header.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:rgba(255,255,255,.82);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,183,197,.4)}
+  header.top h1{margin:0;font-size:18px;color:#c2185b;display:flex;align-items:center;gap:6px}
+  .back{text-decoration:none;font-size:12px;font-weight:700;color:#c2185b;background:#ffe3ec;border-radius:999px;padding:7px 12px;white-space:nowrap}
+  .count{font-size:12px;font-weight:700;color:#fff;background:linear-gradient(90deg,#ff4081,#ff9800);border-radius:999px;padding:6px 12px;white-space:nowrap;box-shadow:0 3px 8px rgba(255,64,129,.3)}
+
+  main{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:16px 14px 8px}
+  .lead{margin:6px 0 14px;text-align:center;font-size:13px;line-height:1.7;color:#7a4a5e}
+  .bar{height:10px;border-radius:999px;background:#ffe3ec;overflow:hidden;margin:0 auto 18px;max-width:420px}
+  .bar>div{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#ff80ab,#ffd54f);transition:width .9s ease}
+
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  @media(min-width:720px){.grid{grid-template-columns:repeat(4,1fr)}}
+
+  .entry{position:relative;background:rgba(255,255,255,.86);border:3px solid var(--fc);border-radius:22px;padding:10px 8px 12px;text-align:center;
+    box-shadow:0 8px 22px rgba(0,0,0,.08), inset 0 0 0 4px rgba(255,255,255,.7);cursor:pointer;transition:transform .2s;user-select:none;-webkit-user-select:none}
+  .entry:active{transform:scale(.97)}
+  .entry .no{position:absolute;left:10px;top:8px;font-size:11px;font-weight:700;color:var(--fa);opacity:.8}
+  .entry .emb{position:relative;width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;margin-top:6px}
+  .entry .emb img{max-width:92%;max-height:92%;object-fit:contain;-webkit-user-drag:none;pointer-events:none}
+  .entry.found .emb img{filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));animation:embFloat 5s ease-in-out infinite}
+  @keyframes embFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  .entry.locked{cursor:default;border-style:dashed;background:rgba(255,255,255,.6)}
+  .entry.locked .emb img{filter:brightness(0) opacity(.16) blur(1.2px)}
+  .entry .q{position:absolute;font-size:46px;font-weight:700;color:var(--fc);opacity:.7;animation:qp 2.2s ease-in-out infinite}
+  @keyframes qp{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.15);opacity:.9}}
+  .entry .nm{margin-top:4px;font-size:15px;font-weight:700;color:var(--fa)}
+  .entry .rl{font-size:11px;font-weight:600;color:var(--fa);opacity:.9}
+  .entry .hn{font-size:10.5px;color:#8a7a85;line-height:1.5;margin-top:2px;min-height:2.6em}
+  .entry .new{position:absolute;right:-6px;top:-8px;background:#ff4081;color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;box-shadow:0 3px 8px rgba(255,64,129,.5);animation:newPulse 1.2s ease-in-out infinite}
+  @keyframes newPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+  .entry.pop{animation:popIn 1.4s ease-out 1}
+  @keyframes popIn{0%{transform:scale(.9)}35%{transform:scale(1.07);box-shadow:0 0 0 14px rgba(255,213,79,.5)}100%{transform:scale(1);box-shadow:0 8px 22px rgba(0,0,0,.08)}}
+
+  .complete{margin:22px auto 0;max-width:420px;text-align:center;background:rgba(255,255,255,.85);border-radius:22px;padding:16px;font-size:13px;font-weight:700;color:#c2185b;border:2px dashed #ffb7c5}
+  .complete .big{font-size:30px;line-height:1.2}
+
+  nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:12;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+    padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(0deg,rgba(255,244,247,.97) 55%,rgba(255,244,247,0))}
+  .btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;border:none;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;border-radius:999px;padding:12px 20px}
+  .btn.main{color:#fff;background:linear-gradient(135deg,#ff8fbb,#ff4081);box-shadow:0 6px 18px rgba(255,64,129,.4)}
+  .btn.sub{color:#c2185b;background:#fff;border:2px solid #ffb7c5}
+
+  /* ---------- 詳しいカード（タップで開く） ---------- */
+  .veil{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(60,20,50,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .veil.on{display:flex;animation:fadeIn .3s both}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .sheet{position:relative;width:min(92vw,420px);max-height:90vh;overflow:auto;background:linear-gradient(180deg,#fff,#fff7fa);border:4px solid var(--fc);border-radius:28px;
+    padding:18px 18px 20px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.35), inset 0 0 0 5px rgba(255,255,255,.8);animation:sheetIn .5s cubic-bezier(.34,1.56,.64,1) both}
+  @keyframes sheetIn{from{transform:scale(.8) translateY(30px);opacity:0}to{transform:none;opacity:1}}
+  .sheet .x{position:absolute;right:12px;top:10px;width:34px;height:34px;border-radius:50%;border:none;background:#ffe3ec;color:#c2185b;font-size:18px;font-weight:700;cursor:pointer}
+  .sheet .big{width:min(62vw,260px);aspect-ratio:1/1;margin:6px auto 0;display:flex;align-items:center;justify-content:center}
+  .sheet .big img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 10px 16px rgba(0,0,0,.22));animation:embFloat 5s ease-in-out infinite}
+  .sheet h2{margin:6px 0 0;font-size:24px;color:var(--fa)}
+  .sheet .role{font-size:13px;font-weight:700;color:var(--fa)}
+  .sheet .say{margin:10px 0;font-size:14px;line-height:1.7;color:#5a4a42}
+  .sheet dl{margin:12px 0 0;text-align:left;font-size:13px;line-height:1.6;background:#fff;border-radius:16px;padding:10px 14px;border:2px solid rgba(0,0,0,.05)}
+  .sheet dt{font-weight:700;color:var(--fa);font-size:11px;margin-top:6px}
+  .sheet dt:first-child{margin-top:0}
+  .sheet dd{margin:0}
+
+  /* ---------- 登録のおいわい（見つけた直後） ---------- */
+  .reveal .sheet{padding-top:22px}
+  .reveal .tag{display:inline-block;background:linear-gradient(90deg,#ffb74d,#ff4081);color:#fff;font-weight:700;font-size:12px;border-radius:999px;padding:5px 14px;margin-bottom:4px;box-shadow:0 4px 12px rgba(255,64,129,.35)}
+  .reveal .big{width:min(70vw,300px)}
+  .reveal .big img{animation:revealIn 1.4s cubic-bezier(.2,.9,.3,1.2) both, embFloat 5s ease-in-out 1.4s infinite}
+  @keyframes revealIn{0%{transform:scale(.1) rotate(-25deg);opacity:0;filter:brightness(2.5) drop-shadow(0 0 30px #fff)}60%{transform:scale(1.12) rotate(4deg);opacity:1}100%{transform:scale(1) rotate(0);filter:drop-shadow(0 10px 16px rgba(0,0,0,.22))}}
+</style>
+</head>
+<body>
+
+<div class="bgdots" id="bgdots"></div>
+
+<header class="top">
+  <a class="back" href="webar_fairy_world.html">🏠 ホーム</a>
+  <h1>📖 妖精ずかん</h1>
+  <div class="count"><span id="cnt">0</span> / 4</div>
+</header>
+
+<main>
+  <p class="lead" id="lead"></p>
+  <div class="bar"><div id="barFill"></div></div>
+  <div class="grid" id="grid"></div>
+  <div class="complete" id="complete" style="display:none"></div>
+</main>
+
+<nav class="bottom" id="bottomNav"></nav>
+
+<!-- 詳しいカード -->
+<div class="veil" id="detail"><div class="sheet" id="detailSheet"></div></div>
+<!-- 登録のおいわい -->
+<div class="veil reveal" id="reveal"><div class="sheet" id="revealSheet"></div></div>
+
+<script src="fairies.js"></script>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const found = FairyStore.get();
+  const total = FAIRIES.length;
+  const count = FAIRIES.filter(f => found[f.id]).length;
+  const newId = new URLSearchParams(location.search).get('new');
+  const fmt = ts => { const d = new Date(ts); return (d.getMonth()+1) + '月' + d.getDate() + '日 ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
+
+  // 背景のキラキラ
+  const dots = $('bgdots');
+  for(let i=0;i<22;i++){ const e = document.createElement('i'); e.style.left = Math.random()*100 + 'vw'; e.style.top = Math.random()*100 + 'vh';
+    e.style.animationDelay = (Math.random()*5) + 's'; e.style.animationDuration = (4 + Math.random()*4) + 's'; dots.appendChild(e); }
+
+  // ヘッダーと文
+  $('cnt').textContent = count;
+  setTimeout(() => { $('barFill').style.width = (count/total*100) + '%'; }, 150);
+  $('lead').innerHTML = count === 0
+    ? 'まだ妖精に会えていないよ。<br>会えた妖精の「紋章」が、ここにそろっていくよ。'
+    : (count >= total ? '4人の紋章がぜんぶそろったよ！ 🎉<br>カードをタップすると、くわしく見られるよ。'
+                      : '見つけた妖精の紋章がそろっていくよ。<br>カードをタップすると、くわしく見られるよ。');
+
+  // 紋章の画像を先読み
+  FAIRIES.forEach(f => { if(f.emblem){ const i = new Image(); i.src = f.emblem; } });
+
+  // カードを並べる
+  const grid = $('grid');
+  FAIRIES.forEach((f, idx) => {
+    const isFound = !!found[f.id];
+    const el = document.createElement('div');
+    el.className = 'entry ' + (isFound ? 'found' : 'locked');
+    el.style.setProperty('--fc', f.color); el.style.setProperty('--fa', f.accent);
+    el.dataset.id = f.id;
+    el.innerHTML =
+      '<div class="no">No.' + (idx+1) + '</div>' +
+      (isFound && newId === f.id ? '<div class="new">NEW!</div>' : '') +
+      '<div class="emb"><img src="' + f.emblem + '" alt="' + (isFound ? f.name : '？？？') + '" draggable="false">' + (isFound ? '' : '<div class="q">？</div>') + '</div>' +
+      '<div class="nm">' + (isFound ? f.name : '？？？') + '</div>' +
+      '<div class="rl">' + (isFound ? f.role : 'ひみつの妖精') + '</div>' +
+      '<div class="hn">' + (isFound ? (f.subtitle || '') : (f.hint || '')) + '</div>';
+    if(isFound) el.addEventListener('click', () => openDetail(f));
+    grid.appendChild(el);
+  });
+
+  // コンプリート
+  const comp = $('complete');
+  if(count >= total){
+    comp.style.display = 'block';
+    comp.innerHTML = '<div class="big">🎉</div>ずかんコンプリート！<br><span style="font-weight:500;font-size:12px;color:#7a4a5e">4人ぜんいんに会えたよ。ありがとう！</span>';
+  }
+
+  // 下のボタン
+  const nav = $('bottomNav');
+  const nextF = FAIRIES.find(f => !found[f.id]);
+  let nextHtml;
+  if(!nextF) nextHtml = '<a class="btn main" href="index4.html">🌟 みんなでフィナーレへ</a>';
+  else if(nextF.id === 'rose') nextHtml = '<a class="btn main" href="index.html">📷 ローズに会いにいく</a>';
+  else nextHtml = '<a class="btn main" href="find.html?f=' + encodeURIComponent(nextF.id) + '">🔍 ' + nextF.name + 'をさがす</a>';
+  nav.innerHTML = '<a class="btn sub" href="webar_fairy_world.html">🏠 ホームへ戻る</a>' + nextHtml;
+
+  // ---------- キラキラ ----------
+  const fx = FairyFX.createLayer(document.body, true);
+  const fxo = (f, p, size) => ({ colors:f.sparks, glyphs:f.glyphs, size:size||17, power:p||1, dur:1500 });
+  (function idle(){
+    const list = FAIRIES.filter(f => found[f.id]);
+    if(list.length && !document.hidden){
+      const f = list[Math.floor(Math.random()*list.length)];
+      const img = grid.querySelector('[data-id="' + f.id + '"] img');
+      if(img){ const r = img.getBoundingClientRect();
+        if(r.bottom > 0 && r.top < window.innerHeight) FairyFX.spark(fx, r.left + r.width*(.15 + Math.random()*.7), r.top + r.height*(.1 + Math.random()*.8), fxo(f, 0.9, 15)); }
+    }
+    setTimeout(idle, 500 + Math.random()*500);
+  })();
+
+  // ---------- くわしいカード ----------
+  const detail = $('detail'), dSheet = $('detailSheet');
+  function openDetail(f){
+    dSheet.style.setProperty('--fc', f.color); dSheet.style.setProperty('--fa', f.accent);
+    dSheet.innerHTML =
+      '<button class="x" aria-label="とじる">✕</button>' +
+      '<div class="big"><img src="' + f.emblem + '" alt="' + f.name + '"></div>' +
+      '<h2>' + f.name + '</h2><div class="role">' + f.role + '</div>' +
+      '<div class="say">「' + (f.voice && f.voice[0] ? f.voice[0] : '') + '」</div>' +
+      '<dl>' +
+        '<dt>ひとこと</dt><dd>' + (f.subtitle || '') + '</dd>' +
+        '<dt>とくいなこと</dt><dd>' + (f.captions ? f.captions.join(' ／ ') : '') + '</dd>' +
+        '<dt>すんでいる場所</dt><dd>' + (f.area || '') + '</dd>' +
+        '<dt>見つけた日</dt><dd>' + (found[f.id] && found[f.id].ts ? fmt(found[f.id].ts) : '') + '</dd>' +
+      '</dl>';
+    detail.classList.add('on');
+    dSheet.querySelector('.x').addEventListener('click', closeDetail);
+    setTimeout(() => { const r = dSheet.querySelector('.big img').getBoundingClientRect();
+      FairyFX.burst(fx, r.left + r.width/2, r.top + r.height/2, 20, fxo(f, 1.8, 18)); }, 250);
+  }
+  function closeDetail(){ detail.classList.remove('on'); }
+  detail.addEventListener('click', e => { if(e.target === detail) closeDetail(); });
+
+  // ---------- 見つけた直後：図鑑にとうろくされるおいわい ----------
+  if(newId && found[newId]){
+    const f = FAIRIES.find(x => x.id === newId);
+    const rv = $('reveal'), rs = $('revealSheet');
+    rs.style.setProperty('--fc', f.color); rs.style.setProperty('--fa', f.accent);
+    rs.innerHTML =
+      '<div class="tag">📖 ずかんに とうろくされたよ！</div>' +
+      '<div class="big"><img src="' + f.emblem + '" alt="' + f.name + '"></div>' +
+      '<h2>' + f.name + '</h2><div class="role">' + f.role + '</div>' +
+      '<div class="say">' + (f.subtitle || '') + '</div>' +
+      '<button class="btn main" id="revealOk" style="margin-top:6px">✨ ずかんを見る</button>';
+    setTimeout(() => {
+      rv.classList.add('on');
+      const burst = (n, p) => { const r = rs.querySelector('.big img').getBoundingClientRect(); FairyFX.burst(fx, r.left + r.width/2, r.top + r.height/2, n, fxo(f, p, 20)); };
+      setTimeout(() => burst(40, 2.6), 350);
+      setTimeout(() => burst(26, 2.0), 1100);
+      setTimeout(() => burst(20, 1.6), 1900);
+    }, 450);
+    $('revealOk').addEventListener('click', () => {
+      rv.classList.remove('on');
+      const card = grid.querySelector('[data-id="' + f.id + '"]');
+      if(card){ card.scrollIntoView({behavior:'smooth', block:'center'}); card.classList.add('pop');
+        setTimeout(() => { const r = card.getBoundingClientRect(); FairyFX.burst(fx, r.left + r.width/2, r.top + r.height*.4, 24, fxo(f, 2, 18)); }, 500); }
+    });
+    // 戻ったり再読み込みしたときに、おいわいをくり返さない
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+  }
+})();
+</script>
+</body>
+</html>

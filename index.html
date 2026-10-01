@@ -28,6 +28,7 @@
   .home-btn { display:none; align-items:center; gap:8px; background:linear-gradient(135deg,#ff8fbb,#ff4081); color:#fff; text-decoration:none;
     border:none; border-radius:999px; padding:12px 18px; font-size:14px; font-weight:700; box-shadow:0 6px 20px rgba(255,64,129,.45); cursor:pointer; pointer-events:auto; }
   .home-btn.show { display:inline-flex; animation:bounceIn .6s both; }
+  .home-btn.sub { background:rgba(255,255,255,.92); color:#c2185b; box-shadow:0 4px 14px rgba(0,0,0,.25); }
   @keyframes bounceIn { 0% { transform:scale(.6); opacity:0; } 60%{ transform:scale(1.08); opacity:1; } 100%{ transform:scale(1); } }
 
   .bubble { position:fixed; left:50%; bottom:calc(110px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
@@ -104,7 +105,8 @@
 
 <div class="bottom-bar">
   <div class="hint" id="hint">💡 ローズをタップすると跳ねるよ 🌹</div>
-  <a class="home-btn" id="homeBtn" href="webar_fairy_world.html?new=rose">🏠 ホームへ戻る</a>
+  <a class="home-btn" id="zukanBtn" href="zukan.html?new=rose">📖 ずかんを見る</a>
+  <a class="home-btn sub" id="homeBtn" href="webar_fairy_world.html?new=rose">🏠 ホームへ戻る</a>
 </div>
 
 <script src="fairies.js"></script>
@@ -148,6 +150,7 @@
   const roseTarget= document.getElementById('rose-target');
   const overlay   = document.getElementById('markerOverlay');
   const homeBtn   = document.getElementById('homeBtn');
+  const zukanBtn  = document.getElementById('zukanBtn');
   const hint      = document.getElementById('hint');
   const bubble    = document.getElementById('bubble');
   const startVeil = document.getElementById('startVeil');
@@ -345,7 +348,7 @@
     markDiscovered();
     S.shown = true; S.seen = false; S.enterT = 0;
     box.classList.add('on');
-    homeBtn.classList.add('show');
+    homeBtn.classList.add('show'); zukanBtn.classList.add('show');
     hint.textContent = '💡 ローズをタップすると、画面いっぱいにジャンプするよ 🌹';
     overlay.classList.add('hide');
     startBubbles();
@@ -360,7 +363,7 @@
       box.classList.remove('on');
       overlay.classList.remove('hide');
       hint.textContent = '💡 ローズをタップすると跳ねるよ 🌹';
-      homeBtn.classList.remove('show');
+      homeBtn.classList.remove('show'); zukanBtn.classList.remove('show');
       stopBubbles();
     }, 900);
   }

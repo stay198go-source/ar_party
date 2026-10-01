@@ -75,6 +75,7 @@
   .btn { pointer-events:auto; display:none; align-items:center; gap:8px; text-decoration:none; color:#fff; border:none; border-radius:999px; padding:13px 22px;
     font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; background:linear-gradient(135deg,#ff8fbb,#ff4081); box-shadow:0 6px 20px rgba(255,64,129,.5); }
   .btn.show { display:inline-flex; animation:bounceIn .6s both; }
+  .btn.sub { background:rgba(255,255,255,.92); color:#c2185b; box-shadow:0 4px 14px rgba(0,0,0,.25); }
   @keyframes bounceIn { 0%{ transform:scale(.6); opacity:0; } 60%{ transform:scale(1.08); opacity:1; } 100%{ transform:scale(1); } }
 
   .start-veil { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; padding:24px; text-align:center;
@@ -107,13 +108,14 @@
   <a class="mini-home" href="webar_fairy_world.html">🏠 ホーム</a>
 </div>
 <div class="hint" id="hint"></div>
-<div class="toast" id="toast">📖 ずかんにとうろくしたよ！</div>
+<div class="toast" id="toast">📖 ずかんに とうろくしたよ！</div>
 <div class="bubble" id="bubble"></div>
 
 <div class="mode-pill" id="modePill"><span id="modeText"></span><button id="sensorBtn" type="button">📡 向きセンサーをオンにする</button></div>
 
 <div class="bottom-bar">
-  <a class="btn" id="homeBtn" href="webar_fairy_world.html">🏠 ホームへ戻る</a>
+  <a class="btn" id="zukanBtn" href="zukan.html">📖 ずかんを見る</a>
+  <a class="btn sub" id="homeBtn" href="webar_fairy_world.html">🏠 ホームへ戻る</a>
 </div>
 
 <div class="start-veil" id="startVeil">
@@ -156,6 +158,9 @@
   $('npRole').textContent = F.role;
   document.title = 'AR Party 🔍 ' + F.name + 'をさがせ';
   homeBtn.href = 'webar_fairy_world.html?new=' + encodeURIComponent(F.id);
+  const zukanBtn = $('zukanBtn');
+  zukanBtn.href = 'zukan.html?new=' + encodeURIComponent(F.id);
+  if(F.emblem){ const _e = new Image(); _e.src = F.emblem; }
 
   FairyFX.injectStyle();
   const fx = FairyFX.createLayer(document.body, true);
@@ -456,7 +461,7 @@
     setTimeout(() => toast.classList.remove('show'), 3200);
     saySeq(F.thanks);
     nameplate.classList.add('on');
-    setTimeout(() => homeBtn.classList.add('show'), 1800);
+    setTimeout(() => { zukanBtn.classList.add('show'); homeBtn.classList.add('show'); }, 1800);
   }
 
   let sayTimers = [];

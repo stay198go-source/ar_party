@@ -17,7 +17,7 @@
  */
 window.FAIRIES = [
   /* ---------- 1. バラの妖精 ローズ ---------- */
-  { id:'rose', name:'ローズ', role:'🌹 メイン妖精', subtitle:'バラの香りをお届け',
+  { id:'rose', emblem:'emblem_rose.png', name:'ローズ', role:'🌹 メイン妖精', subtitle:'バラの香りをお届け',
     color:'#ff4081', accent:'#d81b60',
     sparks:['#ff80ab','#ffd54f','#ffffff','#ffb3d1','#ff4081'], glyphs:['✦','✧','♡','★'],
     img:{ aspect:1.159, bodyRatio:0.89, bodyW:0.654, cx:0.49 },
@@ -31,7 +31,7 @@ window.FAIRIES = [
     entry:'fadeBounce', delay:0, bleCode:'R', area:'ローズガーデン', status:'ready' },
 
   /* ---------- 2. 雲の妖精 リア ---------- */
-  { id:'ria', name:'リア', role:'☁️ おともだち', subtitle:'雲の上からやってきた',
+  { id:'ria', emblem:'emblem_ria.png', name:'リア', role:'☁️ おともだち', subtitle:'雲の上からやってきた',
     color:'#4fc3f7', accent:'#0277bd',
     sparks:['#81d4fa','#b3e5fc','#ffffff','#e1bee7','#ffd54f'], glyphs:['✦','✧','★','☆'],
     img:{ aspect:1.568, bodyRatio:0.961, bodyW:0.453, cx:0.563 },
@@ -51,7 +51,7 @@ window.FAIRIES = [
     hint:'☁️ 空のほうから、ふわふわの気配がするよ…', },
 
   /* ---------- 3. 光の妖精 ティンク ---------- */
-  { id:'tink', name:'ティンク', role:'✨ あたらしい仲間', subtitle:'キラキラの光をまとう',
+  { id:'tink', emblem:'emblem_tink.png', name:'ティンク', role:'✨ あたらしい仲間', subtitle:'キラキラの光をまとう',
     color:'#ffd54f', accent:'#ff9800',
     sparks:['#ffe082','#fff59d','#ffffff','#ffcc80','#ffd54f'], glyphs:['✦','✧','★','✦'],
     img:{ aspect:0.93, bodyRatio:0.942, bodyW:0.687, cx:0.486 },
@@ -69,7 +69,7 @@ window.FAIRIES = [
     hint:'✨ キラキラ光るものを、さがしてみてね', },
 
   /* ---------- 4. 森の妖精 リリー ---------- */
-  { id:'lily', name:'リリー', role:'🍃 もう 1 人の仲間', subtitle:'そよ風にのって森から',
+  { id:'lily', emblem:'emblem_lily.png', name:'リリー', role:'🍃 もう 1 人の仲間', subtitle:'そよ風にのって森から',
     color:'#aed581', accent:'#558b2f',
     sparks:['#c5e1a5','#aed581','#ffffff','#ffe082','#dcedc8'], glyphs:['✦','✧','❦','★'],
     img:{ aspect:0.805, bodyRatio:0.964, bodyW:0.928, cx:0.5 },
