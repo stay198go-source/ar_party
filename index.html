@@ -2,19 +2,19 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <title>AR Party 🌹 ローズ登場編</title>
 
-<!-- A-Frame + MindAR -->
+<!-- A-Frame + MindAR（マーカーの位置をとるためだけに使う） -->
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
 <style>
   html { background:#000; }
-  html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; font-family:"Hiragino Maru Gothic Pro","Rounded M+ 1c",sans-serif; color:#fff; }
-  /* 絶対に伸び縮みさせない */
-  a-scene, a-scene > canvas, a-scene video { width:100% !important; height:100% !important; object-fit:contain; }
+  html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    font-family:"Hiragino Maru Gothic Pro","M PLUS Rounded 1c",sans-serif; color:#fff;
+    -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
 
   .top-bar { position:fixed; top:env(safe-area-inset-top,0); left:0; right:0; padding:14px 18px; z-index:30; display:flex; align-items:center; justify-content:space-between;
     background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0)); pointer-events:none; }
@@ -22,7 +22,7 @@
   .top-bar .title small { font-weight:500; opacity:.85; font-size:11px; display:block; }
 
   .bottom-bar { position:fixed; left:0; right:0; bottom:env(safe-area-inset-bottom,0); padding:14px 16px 24px; z-index:30;
-    display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap;
+    display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; pointer-events:none;
     background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,0)); }
   .hint { background:rgba(0,0,0,.5); border-radius:14px; padding:8px 14px; font-size:13px; text-align:center; }
   .home-btn { display:none; align-items:center; gap:8px; background:linear-gradient(135deg,#ff8fbb,#ff4081); color:#fff; text-decoration:none;
@@ -30,15 +30,15 @@
   .home-btn.show { display:inline-flex; animation:bounceIn .6s both; }
   @keyframes bounceIn { 0% { transform:scale(.6); opacity:0; } 60%{ transform:scale(1.08); opacity:1; } 100%{ transform:scale(1); } }
 
-  .bubble { position:fixed; left:50%; bottom:96px; transform:translateX(-50%);
+  .bubble { position:fixed; left:50%; bottom:calc(110px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
     max-width:80vw; background:#fff; color:#5a0a2c; border-radius:18px; padding:10px 16px;
     font-size:14px; font-weight:600; line-height:1.45; box-shadow:0 6px 22px rgba(0,0,0,.35);
-    border:2px solid #ff4081; opacity:0; pointer-events:none; transition:opacity .35s,transform .35s; z-index:25; }
+    border:2px solid #ff4081; opacity:0; pointer-events:none; transition:opacity .35s,transform .35s; z-index:40; text-align:center; }
   .bubble.show { opacity:1; transform:translateX(-50%) translateY(-4px); }
 
   .marker-overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column;
     background:radial-gradient(ellipse at center, rgba(255,64,129,.18), rgba(0,0,0,.55)); z-index:20; pointer-events:none; transition:opacity .4s; }
-  .marker-overlay.hide { opacity:0; pointer-events:none; }
+  .marker-overlay.hide { opacity:0; }
   .marker-overlay .ring { width:62vmin; height:62vmin; border:3px dashed rgba(255,255,255,.7); border-radius:24px;
     animation:pulseRing 1.8s ease-in-out infinite; box-shadow:0 0 60px rgba(255,64,129,.35); }
   @keyframes pulseRing { 0%,100%{ transform:scale(1); opacity:.7; } 50%{ transform:scale(1.06); opacity:1; } }
@@ -50,7 +50,23 @@
   .start-veil h1 { font-size:22px; margin:0; text-shadow:0 2px 6px rgba(255,255,255,.6); }
   .start-veil p { font-size:13px; margin:0; max-width:80vw; text-align:center; line-height:1.6; }
   .start-veil button { background:linear-gradient(135deg,#ff8fbb,#ff4081); color:#fff; border:none; border-radius:999px;
-    padding:14px 28px; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 6px 20px rgba(255,64,129,.45); }
+    padding:14px 28px; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 6px 20px rgba(255,64,129,.45); font-family:inherit; }
+
+  /* ---------- ローズ本体（画面にかぶせる 2D） ---------- */
+  .rose-box { position:fixed; left:0; top:0; z-index:28; opacity:0; pointer-events:none;
+    transform-origin:50% 88%; will-change:transform,opacity; transition:opacity .35s; }
+  .rose-box.on { opacity:1; }
+  .rose-float { width:100%; height:100%; animation:roseFloat 4.4s ease-in-out infinite; will-change:transform; }
+  .rose-box img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; -webkit-user-drag:none;
+    filter:drop-shadow(0 14px 18px rgba(0,0,0,.3)); }
+  /* ふわふわ飛んでいるゆれ（上下＋ゆらり＋かたむき） */
+  @keyframes roseFloat {
+    0%   { transform:translate(0,0) rotate(-1.6deg); }
+    25%  { transform:translate(7px,-12px) rotate(0deg); }
+    50%  { transform:translate(0,-20px) rotate(1.6deg); }
+    75%  { transform:translate(-7px,-10px) rotate(0deg); }
+    100% { transform:translate(0,0) rotate(-1.6deg); }
+  }
 </style>
 </head>
 <body>
@@ -65,330 +81,298 @@
   <div class="title">🌹 ローズ登場編<small>AR Party ― MindAR</small></div>
 </div>
 
+<!-- MindAR は「マーカーが今どこにあるか」を知るためだけに使う。ローズは下の 2D で描く -->
 <a-scene id="scene"
   mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading:no; uiError:no; uiScanning:no;"
   vr-mode-ui="enabled: false"
   device-orientation-permission-ui="enabled: false"
   embedded
   color-management="true"
-  renderer="alpha:true; antialias:true; logarithmicDepthBuffer:true; precision:high;">
-
-  <a-assets>
-    <img id="rose1" src="./rose_1.png" crossorigin="anonymous" />
-    <img id="rose2" src="./rose_2.png" crossorigin="anonymous" />
-    <img id="rose3" src="./rose_3.png" crossorigin="anonymous" />
-    <img id="rose4" src="./rose_4.png" crossorigin="anonymous" />
-    <img id="rose5" src="./rose_5.png" crossorigin="anonymous" />
-    <img id="rose6" src="./rose_6.png" crossorigin="anonymous" />
-    <img id="rose7" src="./rose_7.png" crossorigin="anonymous" />
-  </a-assets>
-
+  renderer="alpha:true; antialias:true; precision:high;">
   <a-camera id="cam" position="0 0 0" look-controls="enabled:false"></a-camera>
-
-  <!-- MindAR の anchor (位置だけ取得。子は置かない) -->
-  <a-entity id="rose-target" mindar-image-target="targetIndex:0"></a-entity>
-
-  <!-- ローズ本体: scene 直下。anchor-follower + upright-billboard + geometry-reader で姿勢・比率をコンポーネント制御 -->
-  <a-entity id="rose-holder" anchor-follower="source:#rose-target">
-    <a-image id="rose-fairy"
-             src="#rose1"
-             geometry-reader
-             upright-billboard
-             cute-entrance
-             visible="false">
-    </a-image>
-  </a-entity>
-
+  <a-entity id="rose-target" mindar-image-target="targetIndex:0" screen-anchor></a-entity>
 </a-scene>
 
 <div class="marker-overlay" id="markerOverlay">
   <div class="ring"></div>
-  <div class="label">📷 カメラを向けて「targets.mind」のオブジェを映してください</div>
+  <div class="label">📷 ローズの目印にカメラを向けてね</div>
 </div>
+
+<div class="rose-box" id="roseBox"><div class="rose-float"><img id="roseImg" src="rose_1.png" alt="ローズ" draggable="false" /></div></div>
 
 <div class="bubble" id="bubble"></div>
 
 <div class="bottom-bar">
   <div class="hint" id="hint">💡 ローズをタップすると跳ねるよ 🌹</div>
-  <a class="home-btn" id="homeBtn" href="webar_fairy_world.html">🏠 ホームへ戻る</a>
+  <a class="home-btn" id="homeBtn" href="webar_fairy_world.html?new=rose">🏠 ホームへ戻る</a>
 </div>
 
+<script src="fairies.js"></script>
 <script>
 (function(){
 
   // ============================================================
-  // A-Frame カスタムコンポーネント
+  // (1) マーカーの「画面上の位置と大きさ」を毎フレーム調べる
   // ============================================================
+  const track = { found:false, x:0, y:0, markerPx:0 };
 
-  // (0) テクスチャの naturalWidth/Height から plane の width/height を動的にセット
-  //     → 端末や画面比率が変わっても絶対に伸び縮みしない
-  AFRAME.registerComponent('geometry-reader', {
+  AFRAME.registerComponent('screen-anchor', {
     init: function(){
-      const self = this;
-      const apply = ()=>{
-        const m = self.el.components.material && self.el.components.material.material;
-        const img = m && m.map && m.map.image;
-        if(img && img.naturalWidth && img.naturalHeight){
-          const aspect = img.naturalWidth / img.naturalHeight;
-          const TARGET_W = 0.55;            // ワールド単位での横幅
-          self.el.setAttribute('width',  TARGET_W);
-          self.el.setAttribute('height', TARGET_W / aspect);
-        } else if(img){
-          img.addEventListener && img.addEventListener('load', apply, {once:true});
-        }
-      };
-      this.el.addEventListener('loaded', apply);
-      // material の image にすでに読み込み済みなら即適用
-      setTimeout(apply, 80);
-      setTimeout(apply, 400);
-    }
-  });
-
-  // (A) anchor は位置だけ採用。回転・スケールは継承しない (ローズはずっと直立)
-  AFRAME.registerComponent('anchor-follower', {
-    schema: { source: { type: 'selector' } },
-    tick: function(){
-      const src = this.data.source && this.data.source.object3D;
-      if(!src || !src.visible) return;          // マーカーが見えていない間は動かさない
-      src.updateWorldMatrix(true, false);
-      const e = src.matrixWorld.elements;
-      this.el.object3D.position.set(e[12], e[13], e[14]);
-      // MindAR では「マーカーの横幅 = 1」に対応する大きさが行列に入っている。
-      // これを受け取らないと、ローズが米粒より小さくなって見えなくなる。
-      const sc = Math.hypot(e[0], e[1], e[2]);
-      if(sc > 0) this.el.object3D.scale.set(sc, sc, sc);
-    }
-  });
-
-  // (B) ビルボード: カメラの方を向けるが、up = 重力方向
-  //     → DeviceOrientation の (beta, gamma) から重力ベクトルを計算し up にセット
-  //     → 端末の傾きを打ち消して、世界に対して常に直立
-  AFRAME.registerComponent('upright-billboard', {
-    init: function(){
-      this._camPos       = new THREE.Vector3();
-      this._gravity      = new THREE.Vector3(0, 1, 0); // フォールバック
-      this._hasGravity   = false;
-      const self = this;
-      const toRad = d => d * Math.PI / 180;
-      window.addEventListener('deviceorientation', e => {
-        if(e.beta == null || e.gamma == null) return;
-        const beta  = toRad(e.beta);
-        const gamma = toRad(e.gamma);
-        // 端末座標での up = (0,-1,0) をワールド座標へ:
-        const upX = -Math.sin(gamma) * Math.cos(beta);
-        const upY =  Math.cos(gamma) * Math.cos(beta);
-        const upZ =  Math.sin(beta);
-        self._gravity.set(upX, upY, upZ).normalize();
-        self._hasGravity = true;
-      }, {passive:true});
+      this._c = new THREE.Vector3();
+      this._r = new THREE.Vector3();
     },
     tick: function(){
-      const camEl = document.getElementById('cam');
-      if(!camEl) return;
-      const cam = camEl.object3D;
-      cam.updateWorldMatrix(true, false);
-      this._camPos.setFromMatrixPosition(cam.matrixWorld);
-
       const obj = this.el.object3D;
-      if(this._hasGravity){
-        obj.up.copy(this._gravity);
-      } else {
-        obj.up.set(0, 1, 0);
-      }
-      obj.lookAt(this._camPos);
+      const cam = this.el.sceneEl.camera;
+      if(!obj.visible || !cam){ return; }
+      obj.updateWorldMatrix(true, false);
+      cam.updateMatrixWorld();
+      const e = obj.matrixWorld.elements;
+      const W = window.innerWidth, H = window.innerHeight;
+      // マーカー中心
+      this._c.set(e[12], e[13], e[14]).project(cam);
+      // マーカーの右はしの中点（横幅の半分）
+      this._r.set(e[12] + e[0]*0.5, e[13] + e[1]*0.5, e[14] + e[2]*0.5).project(cam);
+      const cx = ( this._c.x*0.5 + 0.5) * W,  cy = (-this._c.y*0.5 + 0.5) * H;
+      const rx = ( this._r.x*0.5 + 0.5) * W,  ry = (-this._r.y*0.5 + 0.5) * H;
+      if(!isFinite(cx) || !isFinite(cy)) return;
+      track.x = cx; track.y = cy;
+      track.markerPx = 2 * Math.hypot(rx - cx, ry - cy);
     }
   });
 
-  // (C) かわいい登場アニメ: easeOutBack で 0 → 1.15 → 1.0。スケール統一で歪まない
-  AFRAME.registerComponent('cute-entrance', {
-    init: function(){
-      this._t = 0;
-      this.el.object3D.scale.set(0.001, 0.001, 0.001);
-    },
-    tick: function(_, dt){
-      if(this._t >= 1) return;
-      this._t = Math.min(1, this._t + dt / 900);
-      const c1 = 1.70158, c3 = c1 + 1;
-      const x = this._t - 1;
-      const e = 1 + c3 * x*x*x + c1 * x*x; // easeOutBack
-      this.el.object3D.scale.set(e, e, e);
-    },
-    restart: function(){ this._t = 0; }
-  });
+  // ============================================================
+  // (2) 画面まわりの部品
+  // ============================================================
+  const scene     = document.getElementById('scene');
+  const roseTarget= document.getElementById('rose-target');
+  const overlay   = document.getElementById('markerOverlay');
+  const homeBtn   = document.getElementById('homeBtn');
+  const hint      = document.getElementById('hint');
+  const bubble    = document.getElementById('bubble');
+  const startVeil = document.getElementById('startVeil');
+  const startBtn  = document.getElementById('startBtn');
+  const box       = document.getElementById('roseBox');
+  const img       = document.getElementById('roseImg');
+
+  const ROSE = FAIRIES.find(f => f.id === 'rose');
+  const META = ROSE.img;                 // aspect 1.159 / bodyRatio 0.89 ...
+  const fx   = FairyFX.createLayer(document.body, true);
+
+  // 画像を先に読み込んで、切り替えでチラつかないようにする
+  const frameUrl = n => n + '.png';
+  [ROSE.frames.rest, ROSE.frames.blink].concat(ROSE.frames.jump.map(p => p[0]))
+    .forEach(n => { const i = new Image(); i.src = frameUrl(n); });
+
+  const S = {
+    cur: { x:0, y:0, h:0 }, seen:false, shown:false,
+    enterT: 1,           // 登場アニメ 0→1
+    jumping:false, jumpStart:0
+  };
+  const JUMP_MS = 3400;
 
   // ============================================================
-  // ステート管理
+  // (3) 毎フレーム：ローズの位置・大きさ・ジャンプを反映
   // ============================================================
-  const scene       = document.getElementById('scene');
-  const roseEl      = document.getElementById('rose-fairy');
-  const roseTarget  = document.getElementById('rose-target');
-  const overlay     = document.getElementById('markerOverlay');
-  const homeBtn     = document.getElementById('homeBtn');
-  const hint        = document.getElementById('hint');
-  const bubble      = document.getElementById('bubble');
-  const startVeil   = document.getElementById('startVeil');
-  const startBtn    = document.getElementById('startBtn');
+  const ease = {
+    outCubic: t => 1 - Math.pow(1 - t, 3),
+    inQuad:   t => t * t,
+    outBack:  t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3*Math.pow(t-1,3) + c1*Math.pow(t-1,2); }
+  };
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-  const roseFrames  = ['#rose1','#rose3','#rose4','#rose5','#rose6','#rose7','#rose1'];
-  const restFrame   = '#rose1';
-  const blinkFrame  = '#rose2';
+  let lastT = performance.now();
+  function frame(now){
+    requestAnimationFrame(frame);
+    const dt = Math.min(64, now - lastT); lastT = now;
+    if(!S.shown) return;
 
-  let blinking = true, jumping = false, blinkTimer = null;
+    const W = window.innerWidth, H = window.innerHeight;
 
-  function setSrc(s){
-    roseEl.setAttribute('material','src', s);
-    roseEl.setAttribute('src', s);
-    // src 切替後は比率を再計算
-    const reader = roseEl.components['geometry-reader'];
-    if(reader && reader.init) reader.init.call(reader);
+    // --- ローズの基本の大きさ（マーカーより大きく・画面に対して大きく）---
+    let h = clamp(track.markerPx * 1.15, H * 0.30, H * 0.44);
+    h = Math.min(h, (W * 0.98) / META.aspect);          // 横にはみ出さない
+    const w = h * META.aspect;
+
+    // --- 目標位置：マーカーの中心の少し上。体が画面から出ないよう内側に寄せる ---
+    const bodyHalf = META.bodyW * w * 0.5;
+    let tx = clamp(track.x, bodyHalf + 6, W - bodyHalf - 6);
+    let ty = clamp(track.y - h * 0.10, h * 0.5 + 70, H - h * 0.45 - 90);
+
+    if(!S.seen){ S.cur.x = tx; S.cur.y = ty; S.cur.h = h; S.seen = true; }
+    const k = 1 - Math.pow(0.001, dt / 1000);          // なめらか追従
+    S.cur.x += (tx - S.cur.x) * Math.min(1, k * 1.3);
+    S.cur.y += (ty - S.cur.y) * Math.min(1, k * 1.3);
+    S.cur.h += (h  - S.cur.h) * Math.min(1, k);
+
+    let px = S.cur.x, py = S.cur.y;
+    const baseH = S.cur.h, baseW = baseH * META.aspect;
+    let sc = 1, sx = 1, sy = 1, rot = 0;
+
+    // --- 登場（ぽよんと大きくなる）---
+    if(S.enterT < 1){
+      S.enterT = Math.min(1, S.enterT + dt / 900);
+      sc *= Math.max(0.01, ease.outBack(S.enterT));
+    }
+
+    // --- ジャンプ：画面の中央めがけて大きく跳ぶ ---
+    if(S.jumping){
+      const p = (now - S.jumpStart) / JUMP_MS;
+      if(p >= 1){ S.jumping = false; img.src = frameUrl(ROSE.frames.rest); }
+      else {
+        // 跳ぶ高さ r：0(地面) → 1(てっぺん) → 0
+        let r = 0;
+        if(p > .19 && p < .47)      r = ease.outCubic((p - .19) / .28);
+        else if(p >= .47 && p < .57) r = 1;
+        else if(p >= .57 && p < .72) r = 1 - ease.inQuad((p - .57) / .15);
+        // てっぺんでの大きさ：画面いっぱい（縦も横も画面に収まる範囲で最大）
+        const Smax = Math.min(2.6, (H * 0.80) / baseH, (W * 1.08) / (META.bodyW * baseW));
+        const S_up = Math.max(1.2, Smax);
+        sc *= 1 + (S_up - 1) * r;
+        // 中央へ移動（画面のまんなかよりやや上）
+        const gx = W * 0.5, gy = H * 0.44;
+        px = px + (gx - px) * r;
+        py = py + (gy - py) * r - Math.sin(Math.PI * r) * H * 0.04;
+        rot = 5 * Math.sin(p * Math.PI * 3) * r;
+        // しゃがむ／着地でむにゅっ
+        if(p >= .08 && p < .19){ const q = Math.sin(Math.PI * (p - .08) / .11); sy *= 1 - .10 * q; sx *= 1 + .06 * q; }
+        if(p >= .70 && p < .82){ const q = Math.sin(Math.PI * (p - .70) / .12); sy *= 1 - .11 * q; sx *= 1 + .08 * q; }
+      }
+    }
+
+    box.style.width  = baseW.toFixed(1) + 'px';
+    box.style.height = baseH.toFixed(1) + 'px';
+    box.style.transform =
+      `translate3d(${(px - baseW/2).toFixed(1)}px, ${(py - baseH/2).toFixed(1)}px, 0) ` +
+      `rotate(${rot.toFixed(2)}deg) scale(${(sc*sx).toFixed(3)}, ${(sc*sy).toFixed(3)})`;
   }
+  requestAnimationFrame(frame);
 
-  function startBlink(){
-    if(blinkTimer) return;
-    blinkTimer = setInterval(()=>{
-      if(!blinking || jumping) return;
-      setSrc(blinkFrame);
-      setTimeout(()=>{ if(!jumping) setSrc(restFrame); }, 160);
-    }, 3000);
+  // ============================================================
+  // (4) キラキラ（ふだん＆ジャンプ中）
+  // ============================================================
+  const fxo = (power) => ({ colors:ROSE.sparks, glyphs:ROSE.glyphs, size:17, power:power||1, dur:1500 });
+  function bodyPoint(){
+    const r = box.getBoundingClientRect();
+    return { x: r.left + r.width*(META.cx + (Math.random()-.5)*META.bodyW*1.25),
+             y: r.top  + r.height*(0.06 + Math.random()*0.88) };
   }
+  function idleSparkles(){
+    if(S.shown && !S.jumping){
+      const p = bodyPoint(); FairyFX.spark(fx, p.x, p.y, fxo(0.9));
+      if(Math.random() < .5){ const q = bodyPoint(); FairyFX.spark(fx, q.x, q.y, fxo(0.9)); }
+    }
+    setTimeout(idleSparkles, 380 + Math.random()*420);
+  }
+  idleSparkles();
 
-  // タップでジャンプ — クリックは raycaster では拾えないので pointer events で直接バインド
+  // ============================================================
+  // (5) まばたき（ふつうの時にランダムに）
+  // ============================================================
+  function blinkOnce(){
+    if(S.jumping) return;
+    img.src = frameUrl(ROSE.frames.blink);
+    setTimeout(()=>{ if(!S.jumping) img.src = frameUrl(ROSE.frames.rest); }, 150);
+  }
+  (function scheduleBlink(){
+    setTimeout(()=>{
+      if(S.shown){ blinkOnce(); if(Math.random() < .3) setTimeout(blinkOnce, 340); }
+      scheduleBlink();
+    }, 2200 + Math.random()*2600);
+  })();
+
+  // ============================================================
+  // (6) タップでジャンプ（画面のどこをタップしてもOK）
+  // ============================================================
   function onJump(){
-    if(jumping) return;
-    jumping = true;
-    let i = 0;
-    const reader = () => {
-      const m = roseEl.components.material && roseEl.components.material.material;
-      const img = m && m.map && m.map.image;
-      if(img && img.naturalWidth && img.naturalHeight){
-        return img.naturalWidth / img.naturalHeight;
-      }
-      return 677/369; // 既知のフォールバック
-    };
-    const targetW = 0.55;
-    const tick = setInterval(()=>{
-      setSrc(roseFrames[i]);
-      const t = i / (roseFrames.length - 1);
-      // ゆらぎ (X軸方向に 1.10 → 1.20、Y軸方向に 1.0 → 1.20) — 比率を保ちつつ上下バウンド
-      const wigX = 1 + 0.10 * Math.sin(t * Math.PI);
-      const wigY = 1 + 0.20 * Math.sin(t * Math.PI);
-      const aspect = reader();
-      roseEl.setAttribute('width',  targetW * wigX);
-      roseEl.setAttribute('height', targetW / aspect * wigY);
-      i++;
-      if(i >= roseFrames.length){
-        clearInterval(tick);
-        setTimeout(()=>{
-          setSrc(restFrame);
-          jumping = false;
-        }, 80);
-      }
-    }, 120);
+    if(!S.shown || S.jumping) return;
+    S.jumping = true; S.jumpStart = performance.now();
+    // 画像を「ゆっくり」順番に切り替える
+    let acc = 0;
+    ROSE.frames.jump.forEach(([fr, frac]) => {
+      setTimeout(()=>{ if(S.jumping) img.src = frameUrl(fr); }, acc * JUMP_MS);
+      acc += frac;
+    });
+    // キラキラ：飛び立ち・空中・着地で増やす
+    setTimeout(()=>{ const p = bodyPoint(); FairyFX.burst(fx, p.x, p.y, 22, fxo(1.8)); }, JUMP_MS * .18);
+    const trail = setInterval(()=>{
+      for(let i=0;i<3;i++){ const p = bodyPoint(); FairyFX.spark(fx, p.x, p.y, fxo(1.5)); }
+    }, 55);
+    setTimeout(()=>clearInterval(trail), JUMP_MS * .74);
+    setTimeout(()=>{ const p = bodyPoint(); FairyFX.burst(fx, p.x, p.y, 34, fxo(2.4)); }, JUMP_MS * .70);
   }
-  ['click','touchend','pointerup'].forEach(ev=>{
-    roseEl.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); onJump(); }, {passive:false});
+  document.addEventListener('pointerdown', e => {
+    if(e.target.closest && e.target.closest('.home-btn, .start-veil')) return;
+    onJump();
   });
 
-  // 吹き出し
+  // ============================================================
+  // (7) ふきだし
+  // ============================================================
   const voices = [
     'こんにちは！バラの妖精ローズよ 🌹',
-    'タップして私のダンスを見てね ✨',
+    'タップして私のジャンプを見てね ✨',
     'いい香りと一緒にあそぼ〜 💕',
-    'ローズの香りで満たすわ…🍷',
+    'ローズの香りで満たすわ 🌹',
     'また会いに来てね ♪'
   ];
-  let bubbleTimer = null;
+  let bubbleTimer = null, firstBubble = null;
+  function say(txt){
+    bubble.textContent = txt;
+    bubble.classList.add('show');
+    setTimeout(()=>bubble.classList.remove('show'), 3500);
+  }
   function startBubbles(){
     if(bubbleTimer) return;
-    let i = 0;
-    bubbleTimer = setInterval(()=>{
-      if(!roseEl.getAttribute('visible')) return;
-      bubble.textContent = voices[i % voices.length];
-      bubble.classList.add('show');
-      i++;
-      setTimeout(()=>{ bubble.classList.remove('show'); }, 3500);
-    }, 5500);
-    setTimeout(()=>{
-      bubble.textContent = voices[0];
-      bubble.classList.add('show');
-      setTimeout(()=>{ bubble.classList.remove('show'); }, 3500);
-    }, 1200);
+    let i = 1;
+    firstBubble = setTimeout(()=>say(voices[0]), 1200);
+    bubbleTimer = setInterval(()=>{ say(voices[i % voices.length]); i++; }, 5500);
   }
-  function stopBubbles(){ if(bubbleTimer){ clearInterval(bubbleTimer); bubbleTimer = null; } bubble.classList.remove('show'); }
+  function stopBubbles(){
+    if(bubbleTimer){ clearInterval(bubbleTimer); bubbleTimer = null; }
+    if(firstBubble){ clearTimeout(firstBubble); firstBubble = null; }
+    bubble.classList.remove('show');
+  }
 
-  // 検出
-  function markDiscovered(){
-    try{
-      const key='ar_party_discovered';
-      const data=JSON.parse(localStorage.getItem(key)||'{}');
-      data['rose'] = { name:'ローズ', code:'', area:'', ts:Date.now() };
-      localStorage.setItem(key, JSON.stringify(data));
-    }catch(e){}
-  }
+  // ============================================================
+  // (8) マーカーを見つけた／見失った
+  // ============================================================
+  function markDiscovered(){ try{ FairyStore.mark(ROSE); }catch(e){} }
+  let lostTimer = null;
   function showRose(){
+    if(lostTimer){ clearTimeout(lostTimer); lostTimer = null; }
+    if(S.shown) return;
     markDiscovered();
-    roseEl.setAttribute('visible','true');
+    S.shown = true; S.seen = false; S.enterT = 0;
+    box.classList.add('on');
     homeBtn.classList.add('show');
-    hint.style.display = 'none';
+    hint.textContent = '💡 ローズをタップすると、画面いっぱいにジャンプするよ 🌹';
     overlay.classList.add('hide');
-    const ent = roseEl.components['cute-entrance'];
-    if(ent) ent.restart();
-    startBlink(); startBubbles();
+    startBubbles();
+    setTimeout(()=>{ const p = bodyPoint(); FairyFX.burst(fx, p.x, p.y, 26, fxo(2)); }, 260);
   }
   function hideRose(){
-    roseEl.setAttribute('visible','false');
-    overlay.classList.remove('hide');
-    hint.style.display = '';
-    homeBtn.classList.remove('show');
-    stopBubbles();
+    if(lostTimer) return;
+    // 一瞬見失っただけでは消さない（ちらつき防止）
+    lostTimer = setTimeout(()=>{
+      lostTimer = null;
+      S.shown = false; S.jumping = false;
+      box.classList.remove('on');
+      overlay.classList.remove('hide');
+      hint.textContent = '💡 ローズをタップすると跳ねるよ 🌹';
+      homeBtn.classList.remove('show');
+      stopBubbles();
+    }, 900);
   }
   roseTarget.addEventListener('targetFound', showRose);
-  roseTarget.addEventListener('targetLost', hideRose);
+  roseTarget.addEventListener('targetLost',  hideRose);
 
   // ============================================================
-  // iOS ジャイロ許可 — 「はじめる」ボタンのクリックで必ず要求する
-  // ============================================================
-  function requestOrientPermission(){
-    if(typeof DeviceOrientationEvent !== 'undefined' &&
-       typeof DeviceOrientationEvent.requestPermission === 'function'){
-      DeviceOrientationEvent.requestPermission().then(res=>{
-        if(res === 'granted'){
-          console.log('deviceorientation: granted');
-        } else {
-          console.warn('deviceorientation: denied — スクリーン Y 上向きで代用します');
-          // 許可されなくても、対応デバイスなら eventListener を別途作る
-          window.addEventListener('deviceorientation', ()=>{}, {passive:true});
-        }
-      }).catch(err=>console.warn(err));
-    }
-    // Android / PC はそのまま使える
-  }
-
-  // ============================================================
-  // リサイズ / オリエンテーション変化 → シェイプを絶対に歪ませない
-  // ============================================================
-  function resize(){
-    const r = scene.renderer;
-    if(r && r.setSize) r.setSize(window.innerWidth, window.innerHeight, false);
-    const c = scene.canvas;
-    if(c){
-      c.style.width  = window.innerWidth  + 'px';
-      c.style.height = window.innerHeight + 'px';
-    }
-    // 歪みを防ぐために plane 比率を再計算
-    const reader = roseEl.components['geometry-reader'];
-    if(reader){ reader.init.call(reader); }
-  }
-  window.addEventListener('resize', resize);
-  window.addEventListener('orientationchange', ()=> setTimeout(resize, 200));
-
-  // ============================================================
-  // 開始ボタン
+  // (9) 「はじめる」ボタン
   // ============================================================
   startBtn.addEventListener('click', ()=>{
     startVeil.classList.add('hide');
-    setTimeout(()=> startVeil.style.display='none', 500);
-    requestOrientPermission();
+    setTimeout(()=> startVeil.style.display = 'none', 500);
     const startAR = ()=>{
       const sys = scene.systems && scene.systems['mindar-image-system'];
       if(!sys || !sys.start){ alert('ARの部品(MindAR)が読み込めていません。ページを再読み込みしてください'); return; }
@@ -396,28 +380,20 @@
         alert('カメラを起動できませんでした: ' + (err && err.message ? err.message : err));
       });
     };
-    // すでに読み込み済みなら今すぐ開始、まだなら読み込み完了を待つ
     if(scene.hasLoaded){ startAR(); }
     else { scene.addEventListener('loaded', startAR, {once:true}); }
-    setTimeout(resize, 100);
   });
 
   // ============================================================
-  // dev モード (?dev=1) — カメラなしで姿勢を確認するためローズを画面中央に出す
+  // dev モード (?dev=1) — カメラなしで、ローズを画面中央に出して動きを確認
   // ============================================================
   if(new URLSearchParams(location.search).get('dev') === '1'){
-    setTimeout(()=>{
-      roseEl.setAttribute('visible','true');
-      roseEl.object3D.position.set(0, 0, -2.5);
-      const reader = roseEl.components['geometry-reader']; reader && reader.init.call(reader);
-      roseEl.object3D.scale.set(1,1,1);
-      overlay.classList.add('hide');
-      startVeil.style.display = 'none';
-    }, 700);
+    startVeil.style.display = 'none';
+    track.x = window.innerWidth/2; track.y = window.innerHeight*0.55; track.markerPx = window.innerWidth*0.6;
+    setTimeout(showRose, 400);
   }
 
 })();
 </script>
-
 </body>
 </html>

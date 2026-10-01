@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>AR Party 🔍 妖精をさがせ</title>
+<style>
+  html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#1a1230;
+    font-family:"Hiragino Maru Gothic Pro","M PLUS Rounded 1c",sans-serif; color:#fff;
+    -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; touch-action:none; }
+
+  /* カメラ映像（うしろ） */
+  #cam { position:fixed; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; background:#1a1230; }
+  #fallbackBg { position:fixed; inset:0; z-index:0; display:none;
+    background:linear-gradient(160deg,#3a2a6a 0%,#7a4a8a 45%,#e58aa8 100%); }
+  #fallbackBg.on { display:block; }
+
+  .top-bar { position:fixed; top:0; left:0; right:0; z-index:40; padding:calc(12px + env(safe-area-inset-top,0px)) 14px 22px;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+    background:linear-gradient(180deg,rgba(0,0,0,.6),rgba(0,0,0,0)); pointer-events:none; }
+  .top-bar .title { font-weight:700; font-size:16px; text-shadow:0 1px 4px rgba(0,0,0,.7); }
+  .top-bar .title small { display:block; font-weight:500; font-size:11px; opacity:.9; margin-top:2px; }
+  .mini-home { pointer-events:auto; text-decoration:none; color:#fff; font-size:12px; font-weight:700; white-space:nowrap;
+    background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.5); border-radius:999px; padding:7px 12px; }
+
+  .hint { position:fixed; left:50%; transform:translateX(-50%); top:calc(74px + env(safe-area-inset-top,0px)); z-index:40;
+    max-width:86vw; text-align:center; background:rgba(0,0,0,.5); border-radius:16px; padding:8px 14px; font-size:13px; font-weight:600;
+    line-height:1.45; pointer-events:none; transition:opacity .3s; }
+  .hint.hide { opacity:0; }
+
+  /* ---------- 妖精 ---------- */
+  #fairy { position:fixed; left:0; top:0; z-index:20; opacity:0; pointer-events:none; will-change:transform,opacity; }
+  #fairy .glow { position:absolute; left:50%; top:46%; width:130%; height:130%; transform:translate(-50%,-50%); border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,.55) 0%, rgba(255,255,255,.18) 40%, rgba(255,255,255,0) 68%); pointer-events:none; }
+  #fairy .fairy-body { position:relative; }
+  #fairy .fairy-img { filter:drop-shadow(0 0 14px rgba(255,255,255,.85)) drop-shadow(0 10px 16px rgba(0,0,0,.35)); }
+  #ring { position:absolute; left:50%; top:46%; width:118%; height:118%; transform:translate(-50%,-50%) rotate(-90deg); opacity:0; transition:opacity .25s; pointer-events:none; }
+  #ring.on { opacity:1; }
+  #ring circle { fill:none; stroke-width:5; stroke-linecap:round; }
+  #ring .bg { stroke:rgba(255,255,255,.35); }
+  #ring .fg { stroke:#ffe082; filter:drop-shadow(0 0 6px #ffd54f); }
+
+  /* 画面のはしの「こっちだよ」矢印 */
+  #arrow { position:fixed; left:0; top:0; z-index:35; width:46px; height:46px; margin:-23px 0 0 -23px; opacity:0; pointer-events:none; transition:opacity .4s; }
+  #arrow.on { opacity:1; }
+  #arrow svg { width:100%; height:100%; filter:drop-shadow(0 0 8px rgba(255,224,130,.95)); animation:arrowPulse 1.1s ease-in-out infinite; }
+  @keyframes arrowPulse { 0%,100%{ transform:scale(1); opacity:.85; } 50%{ transform:scale(1.25); opacity:1; } }
+
+  #nameplate { position:fixed; left:50%; transform:translateX(-50%); z-index:30; opacity:0; pointer-events:none; transition:opacity .5s;
+    background:rgba(255,255,255,.93); color:#4a3b32; border:2px solid var(--fairy-color,#ff4081); border-radius:16px; padding:6px 16px; text-align:center; line-height:1.3; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  #nameplate.on { opacity:1; }
+  #nameplate strong { display:block; font-size:16px; color:var(--fairy-accent,#d81b60); }
+  #nameplate span { font-size:11px; color:var(--fairy-accent,#d81b60); }
+
+  .bubble { position:fixed; left:50%; top:calc(118px + env(safe-area-inset-top,0px)); transform:translateX(-50%) scale(.9);
+    width:max-content; max-width:84vw; background:#fff; color:#4a3b32; border:3px solid var(--fairy-color,#ff4081); border-radius:20px; padding:12px 18px;
+    font-size:16px; font-weight:700; line-height:1.5; text-align:center; box-shadow:0 8px 26px rgba(0,0,0,.35);
+    opacity:0; pointer-events:none; transition:opacity .35s, transform .35s; z-index:45; }
+  .bubble.show { opacity:1; transform:translateX(-50%) scale(1); }
+
+  .toast { position:fixed; left:50%; top:calc(60px + env(safe-area-inset-top,0px)); transform:translate(-50%,-20px); z-index:46; opacity:0; pointer-events:none;
+    background:linear-gradient(135deg,#ffb74d,#ff4081); color:#fff; border-radius:999px; padding:8px 18px; font-size:13px; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,.3);
+    transition:opacity .4s, transform .4s; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translate(-50%,0); }
+
+  .bottom-bar { position:fixed; left:0; right:0; bottom:0; z-index:40; padding:14px 16px calc(24px + env(safe-area-inset-bottom,0px));
+    display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; pointer-events:none;
+    background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,0)); }
+  .btn { pointer-events:auto; display:none; align-items:center; gap:8px; text-decoration:none; color:#fff; border:none; border-radius:999px; padding:13px 22px;
+    font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; background:linear-gradient(135deg,#ff8fbb,#ff4081); box-shadow:0 6px 20px rgba(255,64,129,.5); }
+  .btn.show { display:inline-flex; animation:bounceIn .6s both; }
+  @keyframes bounceIn { 0%{ transform:scale(.6); opacity:0; } 60%{ transform:scale(1.08); opacity:1; } 100%{ transform:scale(1); } }
+
+  .start-veil { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; padding:24px; text-align:center;
+    background:linear-gradient(135deg,#ffdde1,#ee9ca7); color:#5a0a2c; transition:opacity .4s; }
+  .start-veil.hide { opacity:0; pointer-events:none; }
+  .start-veil .big { font-size:54px; line-height:1; }
+  .start-veil h1 { font-size:22px; margin:0; }
+  .start-veil p { font-size:14px; margin:0; max-width:300px; line-height:1.7; }
+  .start-veil button { background:linear-gradient(135deg,#ff8fbb,#ff4081); color:#fff; border:none; border-radius:999px; padding:15px 30px; font-size:17px; font-weight:700;
+    cursor:pointer; box-shadow:0 6px 20px rgba(255,64,129,.45); font-family:inherit; }
+  .start-veil a { color:#5a0a2c; font-size:13px; }
+</style>
+</head>
+<body>
+
+<video id="cam" playsinline muted autoplay></video>
+<div id="fallbackBg"></div>
+
+<div id="fairy">
+  <div class="glow"></div>
+  <div class="fairy-body"><div class="fairy-jump"><img class="fairy-img" id="fimg" alt="" draggable="false" /></div></div>
+  <svg id="ring" viewBox="0 0 100 100"><circle class="bg" cx="50" cy="50" r="46"/><circle class="fg" id="ringFg" cx="50" cy="50" r="46" stroke-dasharray="289" stroke-dashoffset="289"/></svg>
+</div>
+
+<div id="arrow"><svg viewBox="0 0 48 48"><path d="M8 24 L34 8 L28 24 L34 40 Z" fill="#ffe082" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>
+<div id="nameplate"><strong id="npName"></strong><span id="npRole"></span></div>
+
+<div class="top-bar">
+  <div class="title" id="title">🔍 妖精をさがせ！<small>カメラをゆっくり動かして、かくれている妖精を見つけてね</small></div>
+  <a class="mini-home" href="webar_fairy_world.html">🏠 ホーム</a>
+</div>
+<div class="hint" id="hint"></div>
+<div class="toast" id="toast">📖 ずかんにとうろくしたよ！</div>
+<div class="bubble" id="bubble"></div>
+
+<div class="bottom-bar">
+  <a class="btn" id="homeBtn" href="webar_fairy_world.html">🏠 ホームへ戻る</a>
+</div>
+
+<div class="start-veil" id="startVeil">
+  <div class="big" id="vIcon">🔍</div>
+  <h1 id="vTitle">妖精をさがせ！</h1>
+  <p id="vText">「はじめる」を押してカメラを起動します。<br/>スマホを上下・左右・うしろまで<b>ゆっくり動かして</b>、かくれている妖精を見つけてね。</p>
+  <button id="startBtn">📷 はじめる</button>
+  <a href="webar_fairy_world.html">← ホームにもどる</a>
+</div>
+
+<script src="fairies.js"></script>
+<script>
+(function(){
+  // ============================================================
+  // どの妖精をさがすか（?f=ria / tink / lily）
+  // ============================================================
+  const q = new URLSearchParams(location.search).get('f') || 'ria';
+  const F = FAIRIES.find(x => x.id === q && x.search) || FAIRIES.find(x => x.id === 'ria');
+  const META = F.img;
+
+  const $ = id => document.getElementById(id);
+  const cam = $('cam'), fallbackBg = $('fallbackBg'), fairyEl = $('fairy'), fimg = $('fimg');
+  const hint = $('hint'), bubble = $('bubble'), toast = $('toast'), homeBtn = $('homeBtn');
+  const arrow = $('arrow'), ring = $('ring'), ringFg = $('ringFg'), nameplate = $('nameplate');
+  const startVeil = $('startVeil'), startBtn = $('startBtn');
+  const jumpEl = fairyEl.querySelector('.fairy-jump');
+
+  // 見た目の色・文言
+  document.documentElement.style.setProperty('--fairy-color', F.color);
+  document.documentElement.style.setProperty('--fairy-accent', F.accent);
+  fairyEl.style.setProperty('--fairy-color', F.color);
+  nameplate.style.setProperty('--fairy-color', F.color);
+  nameplate.style.setProperty('--fairy-accent', F.accent);
+  bubble.style.setProperty('--fairy-color', F.color);
+  const emoji = (F.role || '✨').split(' ')[0];
+  $('vIcon').textContent = emoji;
+  $('vTitle').textContent = '「' + F.name + '」をさがせ！';
+  $('title').innerHTML = emoji + ' ' + F.name + 'をさがせ！<small>カメラをゆっくり動かして、かくれている妖精を見つけてね</small>';
+  $('npName').textContent = F.name;
+  $('npRole').textContent = F.role;
+  document.title = 'AR Party 🔍 ' + F.name + 'をさがせ';
+  homeBtn.href = 'webar_fairy_world.html?new=' + encodeURIComponent(F.id);
+
+  FairyFX.injectStyle();
+  const fx = FairyFX.createLayer(document.body, true);
+  const fxo = p => ({ colors:F.sparks, glyphs:F.glyphs, size:17, power:p || 1, dur:1500 });
+
+  // 画像の先読み
+  const frameUrl = n => (n.endsWith('.png') ? n : n + '.png');
+  [F.frames.rest, F.frames.blink].concat(F.frames.jump.map(p => p[0])).forEach(n => { const i = new Image(); i.src = frameUrl(n); });
+  fimg.src = frameUrl(F.frames.rest);
+
+  // ============================================================
+  // 向き（ジャイロ）→ カメラの向きベクトル
+  //   世界: x=東 y=北 z=上。 カメラは うらカメラ = 端末の -z 方向
+  // ============================================================
+  const D2R = Math.PI / 180;
+  let gyro = null;                 // {a,b,g} (ラジアン)
+  let mode = 'wait';               // wait | gyro | drag
+  let heading0 = 0;                // はじめに向いていた方角
+  const drag = { yaw:0, pitch:0, active:false, moved:0, lx:0, ly:0 };
+
+  function applyR(a, b, g, v){      // R = Rz(a)·Rx(b)·Ry(g)
+    const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), cg = Math.cos(g), sg = Math.sin(g);
+    // Ry
+    let x = cg*v[0] + sg*v[2], y = v[1], z = -sg*v[0] + cg*v[2];
+    // Rx
+    let y2 = cb*y - sb*z, z2 = sb*y + cb*z;
+    // Rz
+    return [ca*x - sa*y2, sa*x + ca*y2, z2];
+  }
+  function screenAngle(){
+    if(screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
+    return ((window.orientation || 0) + 360) % 360;
+  }
+  function basisFromGyro(){
+    const ang = screenAngle();
+    let R_d = [1,0,0], U_d = [0,1,0];
+    if(ang === 90){ R_d = [0,-1,0]; U_d = [1,0,0]; }
+    else if(ang === 180){ R_d = [-1,0,0]; U_d = [0,-1,0]; }
+    else if(ang === 270){ R_d = [0,1,0]; U_d = [-1,0,0]; }
+    return {
+      f: applyR(gyro.a, gyro.b, gyro.g, [0,0,-1]),
+      r: applyR(gyro.a, gyro.b, gyro.g, R_d),
+      u: applyR(gyro.a, gyro.b, gyro.g, U_d)
+    };
+  }
+  function basisFromDrag(){
+    const y = drag.yaw, p = drag.pitch;
+    const f = [Math.sin(y)*Math.cos(p), Math.cos(y)*Math.cos(p), Math.sin(p)];
+    const r = [Math.cos(y), -Math.sin(y), 0];
+    const u = [r[1]*f[2] - r[2]*f[1], r[2]*f[0] - r[0]*f[2], r[0]*f[1] - r[1]*f[0]];
+    return { f, r, u };
+  }
+  const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+  function headingOf(b){
+    // 上や下を向きすぎている時は、画面の「上」の向きで方角を決める
+    if(Math.abs(b.f[2]) < 0.8) return Math.atan2(b.f[0], b.f[1]);
+    return Math.atan2(b.u[0], b.u[1]);
+  }
+
+  window.addEventListener('deviceorientation', e => {
+    if(e.beta == null || e.gamma == null || e.alpha == null) return;
+    gyro = { a:e.alpha*D2R, b:e.beta*D2R, g:e.gamma*D2R };
+    if(mode === 'wait'){ mode = 'gyro'; heading0 = headingOf(basisFromGyro()); }
+  }, {passive:true});
+
+  // ドラッグで見回す（ジャイロが無いPC・許可されなかった時）
+  document.addEventListener('pointerdown', e => {
+    drag.active = true; drag.moved = 0; drag.lx = e.clientX; drag.ly = e.clientY;
+  });
+  document.addEventListener('pointermove', e => {
+    if(!drag.active) return;
+    const dx = e.clientX - drag.lx, dy = e.clientY - drag.ly;
+    drag.lx = e.clientX; drag.ly = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+    if(mode === 'drag'){
+      const f = focal();
+      drag.yaw   -= dx / f;
+      drag.pitch  = Math.max(-1.2, Math.min(1.2, drag.pitch + dy / f));
+    }
+  });
+  document.addEventListener('pointerup', e => {
+    const wasTap = drag.active && drag.moved < 10;
+    drag.active = false;
+    if(wasTap) onTap(e.clientX, e.clientY);
+  });
+
+  function focal(){
+    const W = window.innerWidth, H = window.innerHeight;
+    return (Math.max(W, H) / 2) / Math.tan(32.5 * D2R);     // 長いほうが約65°
+  }
+
+  // ============================================================
+  // 妖精の「かくれている方向」
+  // ============================================================
+  const hideYaw = F.search.yaw * D2R, hidePitch = F.search.pitch * D2R;
+  function fairyDir(){
+    const yaw = heading0 + hideYaw;
+    return [Math.sin(yaw)*Math.cos(hidePitch), Math.cos(yaw)*Math.cos(hidePitch), Math.sin(hidePitch)];
+  }
+
+  // ============================================================
+  // 状態
+  // ============================================================
+  const S = {
+    started:false, found:false, startAt:0,
+    sx:0, sy:0, haveS:false, alpha:0, visible:false, lock:0,
+    foundAt:0, fromX:0, fromY:0, fromS:1, jumping:false
+  };
+  const RING_LEN = 289;
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const ease = { outBack:t=>{ const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); }, outCubic:t=>1-Math.pow(1-t,3), inQuad:t=>t*t };
+
+  function sizes(){
+    const W = window.innerWidth, H = window.innerHeight;
+    let imgH = clamp(H * 0.30, 150, 340) / META.bodyRatio;
+    let imgW = imgH * META.aspect;
+    if(imgW > W * 0.92){ imgW = W * 0.92; imgH = imgW / META.aspect; }
+    return { W, H, imgH, imgW, bodyH: imgH * META.bodyRatio };
+  }
+  function layoutFairy(){
+    const z = sizes();
+    fairyEl.style.width = z.imgW + 'px';
+    fairyEl.style.height = z.imgH + 'px';
+    fairyEl.style.setProperty('--img-h', z.imgH + 'px');
+    fairyEl.style.setProperty('--float-amp', Math.min(14, Math.max(6, z.bodyH * 0.05)).toFixed(1) + 'px');
+    fimg.style.left = (-(META.cx - 0.5) * z.imgW).toFixed(1) + 'px';
+    return z;
+  }
+  layoutFairy();
+  window.addEventListener('resize', layoutFairy);
+
+  // ============================================================
+  // メインループ
+  // ============================================================
+  let last = performance.now();
+  function frame(now){
+    requestAnimationFrame(frame);
+    const dt = Math.min(64, now - last); last = now;
+    if(!S.started) return;
+    const z = sizes(), W = z.W, H = z.H, f = focal();
+
+    // --- カメラの向きから、妖精が画面のどこに見えるか ---
+    let basis = null;
+    if(mode === 'gyro' && gyro) basis = basisFromGyro();
+    else if(mode === 'drag') basis = basisFromDrag();
+    if(!basis) return;
+    const d = fairyDir();
+    const cz = dot(d, basis.f), cx = dot(d, basis.r), cy = dot(d, basis.u);
+    let tx = W/2, ty = H/2, vis = false;
+    if(cz > 0.05){
+      tx = W/2 + f * (cx / cz);
+      ty = H/2 - f * (cy / cz);
+      vis = (tx > -z.imgW*0.3 && tx < W + z.imgW*0.3 && ty > -z.imgH*0.3 && ty < H + z.imgH*0.3);
+    }
+    S.visible = vis;
+
+    let x, y, sc = 1;
+    if(!S.found){
+      if(vis){
+        if(!S.haveS){ S.sx = tx; S.sy = ty; S.haveS = true; }
+        S.sx += (tx - S.sx) * 0.4; S.sy += (ty - S.sy) * 0.4;
+      } else { S.haveS = false; }
+      S.alpha += ((vis ? 1 : 0) - S.alpha) * Math.min(1, dt / 220);
+      x = S.sx; y = S.sy;
+
+      // ロックオン（画面の真ん中に妖精を入れ続けると見つかる）
+      const inCenter = vis && Math.abs(x - W/2) < W*0.24 && Math.abs(y - H*0.46) < H*0.17;
+      S.lock = clamp(S.lock + (inCenter ? dt/1000/0.9 : -dt/1000/0.5), 0, 1);
+      ring.classList.toggle('on', S.lock > 0.02);
+      ringFg.style.strokeDashoffset = (RING_LEN * (1 - S.lock)).toFixed(1);
+      if(S.lock >= 1) foundIt();
+
+      updateHint(now, vis, inCenter);
+      updateArrow(now, vis, cx, cy, W, H);
+    } else {
+      // 見つかったあと：画面の真ん中へふわっと移動して、ぴょんと登場
+      const t = clamp((now - S.foundAt) / 1100, 0, 1);
+      const e = ease.outCubic(t);
+      const tx2 = W/2, ty2 = H*0.50;
+      x = S.fromX + (tx2 - S.fromX) * e;
+      y = S.fromY + (ty2 - S.fromY) * e;
+      sc = S.fromS + (1.18 - S.fromS) * ease.outBack(t);
+      S.alpha = 1;
+      nameplate.style.top = (ty2 + z.bodyH * 0.5 + 8) + 'px';
+    }
+
+    fairyEl.style.opacity = S.alpha.toFixed(3);
+    fairyEl.style.transform = 'translate3d(' + (x - z.imgW/2).toFixed(1) + 'px,' + (y - z.imgH/2).toFixed(1) + 'px,0) scale(' + sc.toFixed(3) + ')';
+    S._x = x; S._y = y; S._z = z;
+  }
+  requestAnimationFrame(frame);
+
+  // ============================================================
+  // ヒント文・矢印
+  // ============================================================
+  let lastHint = '';
+  function setHint(t){ if(t === lastHint) return; lastHint = t; hint.textContent = t; }
+  function updateHint(now, vis, inCenter){
+    const searchSec = (now - S.startAt) / 1000;
+    if(inCenter) setHint('そのまま…そのまま…✨');
+    else if(vis) setHint('いた！ 画面の真ん中に合わせてみてね 🔍');
+    else if(searchSec > 9) setHint(F.hint);
+    else setHint(mode === 'drag' ? '👆 ゆびでドラッグして、まわりを見回してね' : '📱 スマホをゆっくり動かして、まわりを見回してね');
+  }
+  let lastArrowSpark = 0;
+  function updateArrow(now, vis, cx, cy, W, H){
+    const searchSec = (now - S.startAt) / 1000;
+    const on = !vis && searchSec > 6;
+    arrow.classList.toggle('on', on);
+    if(!on) return;
+    let ang = Math.atan2(-cy, cx);
+    if(Math.abs(cx) < 0.02 && Math.abs(cy) < 0.02) ang = 0;      // ちょうどうしろ → 右へ
+    const mx = 46, my = 150;
+    const ex = W/2 + Math.cos(ang) * (W/2 - mx), ey = H/2 + Math.sin(ang) * (H/2 - my);
+    arrow.style.transform = 'translate3d(' + clamp(ex, mx, W-mx).toFixed(1) + 'px,' + clamp(ey, my, H-90).toFixed(1) + 'px,0) rotate(' + (ang * 180 / Math.PI).toFixed(1) + 'deg)';
+    if(now - lastArrowSpark > 450){
+      lastArrowSpark = now;
+      FairyFX.spark(fx, clamp(ex, mx, W-mx), clamp(ey, my, H-90), fxo(1));
+    }
+  }
+
+  // ============================================================
+  // ふだんのキラキラ（さがしている間も、見つけたあとも）
+  // ============================================================
+  function bodyPoint(){
+    const r = fimg.getBoundingClientRect();
+    return { x: r.left + r.width * (0.5 + (Math.random()-.5) * META.bodyW * 1.25),
+             y: r.top  + r.height * (0.06 + Math.random() * 0.88) };
+  }
+  (function idle(){
+    if(S.started && (S.visible || S.found) && !S.jumping && S.alpha > 0.3){
+      const p = bodyPoint(); FairyFX.spark(fx, p.x, p.y, fxo(S.found ? 0.9 : 1.1));
+      if(Math.random() < .5){ const q = bodyPoint(); FairyFX.spark(fx, q.x, q.y, fxo(S.found ? 0.9 : 1.1)); }
+    }
+    setTimeout(idle, 330 + Math.random() * 380);
+  })();
+
+  // まばたき
+  function blinkOnce(){
+    if(S.jumping) return;
+    fimg.src = frameUrl(F.frames.blink);
+    setTimeout(() => { if(!S.jumping) fimg.src = frameUrl(F.frames.rest); }, 150);
+  }
+  (function schedBlink(){
+    setTimeout(() => { if(S.alpha > .3){ blinkOnce(); if(Math.random() < .3) setTimeout(blinkOnce, 340); } schedBlink(); }, 2200 + Math.random() * 2600);
+  })();
+
+  // ============================================================
+  // 見つけた！
+  // ============================================================
+  function foundIt(){
+    if(S.found) return;
+    S.found = true; S.foundAt = performance.now();
+    S.fromX = S._x || window.innerWidth/2; S.fromY = S._y || window.innerHeight/2; S.fromS = 1;
+    ring.classList.remove('on'); arrow.classList.remove('on');
+    hint.classList.add('hide');
+    FairyStore.mark(F);
+    if(navigator.vibrate) try{ navigator.vibrate([60, 40, 90]); }catch(e){}
+
+    // キラキラ大爆発
+    setTimeout(() => { const p = bodyPoint(); FairyFX.burst(fx, p.x, p.y, 40, fxo(2.4)); }, 250);
+    setTimeout(() => { const p = bodyPoint(); FairyFX.burst(fx, p.x, p.y, 26, fxo(1.8)); }, 900);
+    setTimeout(() => doJump(), 1100);
+
+    // セリフ
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3200);
+    saySeq(F.thanks);
+    nameplate.classList.add('on');
+    setTimeout(() => homeBtn.classList.add('show'), 1800);
+  }
+
+  let sayTimers = [];
+  function saySeq(lines){
+    sayTimers.forEach(clearTimeout); sayTimers = [];
+    lines.forEach((t, i) => {
+      sayTimers.push(setTimeout(() => {
+        bubble.textContent = t; bubble.classList.add('show');
+        if(i < lines.length - 1) sayTimers.push(setTimeout(() => bubble.classList.remove('show'), 3400));
+      }, 600 + i * 4200));
+    });
+  }
+
+  // ============================================================
+  // ジャンプ（ゆっくり・キラキラ付き）
+  // ============================================================
+  function doJump(){
+    if(S.jumping) return;
+    S.jumping = true;
+    const T = F.frames.jumpMs || 2800;
+    const z = S._z || sizes();
+    const Hh = Math.min(z.H * 0.12, 120), Sx = 1.18;
+    if(jumpEl.animate){
+      jumpEl.animate([
+        { transform:'translateY(0) scale(1,1)', offset:0 },
+        { transform:'translateY(4px) scale(1.06,0.92)', offset:.16 },
+        { transform:'translateY(' + (-Hh*0.55) + 'px) scale(0.97,1.07)', offset:.30 },
+        { transform:'translateY(' + (-Hh) + 'px) scale(' + Sx + ',' + Sx + ')', offset:.46 },
+        { transform:'translateY(' + (-Hh*0.92) + 'px) scale(' + Sx + ',' + Sx + ') rotate(2deg)', offset:.56 },
+        { transform:'translateY(' + (-Hh*0.2) + 'px) scale(1,1.04)', offset:.66 },
+        { transform:'translateY(0) scale(1.08,0.9)', offset:.72 },
+        { transform:'translateY(-3px) scale(0.98,1.03)', offset:.82 },
+        { transform:'translateY(0) scale(1,1)', offset:1 }
+      ], { duration:T, easing:'ease-in-out' });
+    }
+    let acc = 0;
+    F.frames.jump.forEach(([fr, frac]) => { setTimeout(() => { if(S.jumping) fimg.src = frameUrl(fr); }, acc * T); acc += frac; });
+    setTimeout(() => { const p = bodyPoint(); FairyFX.burst(fx, p.x, p.y, 16, fxo(1.5)); }, T * .18);
+    const trail = setInterval(() => { for(let i=0;i<2;i++){ const p = bodyPoint(); FairyFX.spark(fx, p.x, p.y, fxo(1.3)); } }, 60);
+    setTimeout(() => clearInterval(trail), T * .74);
+    setTimeout(() => { const p = bodyPoint(); FairyFX.burst(fx, p.x, p.y, 26, fxo(2.2)); }, T * .70);
+    setTimeout(() => { fimg.src = frameUrl(F.frames.rest); S.jumping = false; }, T + 40);
+  }
+
+  // タップ：見つかったあとなら、もう一度ジャンプ。さがし中は妖精をタップしても見つかる
+  function onTap(px, py){
+    if(!S.started) return;
+    if(S.found){ doJump(); return; }
+    if(S.visible && S._z){
+      const z = S._z;
+      if(Math.hypot(px - S._x, py - S._y) < z.bodyH * 0.55) foundIt();
+    }
+  }
+
+  // ============================================================
+  // はじめる：カメラ ＋ 向きセンサー
+  // ============================================================
+  async function startCamera(){
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
+      cam.srcObject = stream;
+      await cam.play();
+      return true;
+    }catch(err){
+      fallbackBg.classList.add('on'); cam.style.display = 'none';
+      return false;
+    }
+  }
+  async function askMotion(){
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      try{ return (await DeviceOrientationEvent.requestPermission()) === 'granted'; }catch(e){ return false; }
+    }
+    return true;
+  }
+
+  startBtn.addEventListener('click', async () => {
+    startBtn.disabled = true; startBtn.textContent = '準備中…';
+    // iOS は「ユーザーのタップの直後」に許可を聞く必要がある。先に向きセンサー、つぎにカメラ。
+    const motionOK = await askMotion();
+    const camOK = await startCamera();
+    startVeil.classList.add('hide');
+    setTimeout(() => startVeil.style.display = 'none', 500);
+    S.started = true; S.startAt = performance.now();
+
+    // 向きセンサーの値が来るか、少し待つ
+    setTimeout(() => {
+      if(mode === 'wait'){
+        mode = 'drag'; drag.yaw = 0; drag.pitch = 0; heading0 = 0;
+        const why = motionOK ? 'このたんまつは向きセンサーが使えないので、' : '向きセンサーが許可されなかったので、';
+        bubble.textContent = why + 'ゆびでドラッグして見回してね 👆';
+        bubble.classList.add('show'); setTimeout(() => bubble.classList.remove('show'), 4200);
+      }
+    }, 1500);
+    if(!camOK){
+      bubble.textContent = 'カメラが使えなかったので、かわりの背景で遊べるよ（ブラウザのカメラ許可をたしかめてね）';
+      bubble.classList.add('show'); setTimeout(() => bubble.classList.remove('show'), 5000);
+    }
+  });
+
+  // 開発用 ?dev=1 … 「はじめる」を自動で押す
+  if(new URLSearchParams(location.search).get('dev') === '1') setTimeout(() => startBtn.click(), 300);
+})();
+</script>
+</body>
+</html>
