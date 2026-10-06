@@ -128,8 +128,12 @@ window.FairyFX = (function(){
   /* ---------- ステージの妖精カード ---------- */
   .fairy-card{position:absolute;left:var(--pos-x);top:var(--pos-y);transform:translate(-50%,-50%);
     text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;
-    touch-action:manipulation;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+    touch-action:none;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+  .fairy-card.dragging{cursor:grabbing}
+  .fairy-card.dragging .fairy-img{filter:drop-shadow(0 20px 22px rgba(0,0,0,.28))}
   .fairy-card.pre{visibility:hidden}
+  .relayout .fairy-card{transition:left .9s ease, top .9s ease}
+  .relayout .fairy-img{transition:height .9s ease}
   .fairy-body{animation:fairyFloat var(--float-dur,4.2s) ease-in-out infinite;animation-delay:var(--float-delay,0s);will-change:transform}
   .fairy-jump{transform-origin:50% 90%;will-change:transform}
   .fairy-img{display:block;position:relative;height:var(--img-h,180px);width:auto;max-width:none;
@@ -230,7 +234,7 @@ window.FairySequencer = (function () {
   const ENTRY_MS = { fadeBounce:1100, floatDown:1500, sparkleBurst:1300, windSweep:1300 };
   const rand = (a,b)=>a+Math.random()*(b-a);
   const frameUrl = k => (!k || k.endsWith('.png')) ? k : (k + '.png');
-  const state = { stage:null, layer:null, speakers:[], talkIdx:0, talkTimer:null, resizeBound:false };
+  const state = { stage:null, layer:null, speakers:[], talkIdx:0, talkTimer:null, resizeBound:false, mode:'grid' };
 
   function preload(f){
     const names = new Set([f.frames.rest, f.frames.blink]);
@@ -253,14 +257,71 @@ window.FairySequencer = (function () {
     return { colors:f.sparks, glyphs:f.glyphs, size:15, power:power||1, dur:1400 };
   }
 
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+  /* ---- 位置・大きさ（ゆびで動かした分は、ならべなおすまで覚えておく） ---- */
+  function placeCard(card, fx, fy){
+    const keep = card._moved && !state.force;
+    if(!keep){ card._fx = fx; card._fy = fy; }
+    card.style.setProperty('--pos-x', ((card._fx != null ? card._fx : fx)*100)+'%');
+    card.style.setProperty('--pos-y', ((card._fy != null ? card._fy : fy)*100)+'%');
+    return keep;
+  }
+  function applySize(card, f){
+    f = f || FAIRIES.find(x=>x.id===card.dataset.fid);
+    const imgH = (card._baseH || 200) * (card._scale || 1);
+    card.style.setProperty('--img-h', imgH.toFixed(1)+'px');
+    const im = card.querySelector('.fairy-img');
+    if(im) im.style.left = (-(f.img.cx - 0.5) * imgH * f.img.aspect).toFixed(1) + 'px';
+  }
+  function setCardSize(card, f, imgH){ card._baseH = imgH; applySize(card, f); }
+
+  /* ---- 集合写真みたいに並べる（うしろ→まえ。まえの子ほど大きく・下に） ---- */
+  function layoutGroup(stage, cards, W, H, portrait){
+    const spec = portrait
+      ? { lily:[.50,.27,.80], ria:[.27,.50,.92], tink:[.73,.50,.92], rose:[.50,.77,1.10] }
+      : { ria:[.20,.60,.95], rose:[.41,.64,1.10], tink:[.62,.60,.95], lily:[.82,.58,.95] };
+    const baseBody = portrait ? Math.min(H*0.27, W*0.42) : Math.min(H*0.50, W*0.20);
+    cards.forEach((card, i)=>{
+      const f = FAIRIES.find(x=>x.id===card.dataset.fid);
+      const sp = spec[f.id] || [(i+.5)/cards.length, .55, 1];
+      const bodyH = baseBody * sp[2];
+      const imgH = bodyH / f.img.bodyRatio;
+      const keep = placeCard(card, sp[0], sp[1]);
+      setCardSize(card, f, imgH);
+      card.style.setProperty('--float-amp', Math.min(12, Math.max(5, bodyH*0.04)).toFixed(1)+'px');
+      card.style.setProperty('--float-dur', (3.8 + (i%3)*0.6).toFixed(1)+'s');
+      card.style.setProperty('--float-delay', (-i*0.9)+'s');
+      if(!keep){ const z = 10 + Math.round(sp[1]*40); card.style.zIndex = z; card.dataset.z = z; }
+      card.dataset.cellH = H*0.3; card.dataset.bodyH = bodyH;
+    });
+  }
+  function setMode(m){
+    state.mode = m;
+    if(!state.stage) return;
+    state.force = true;                                   // ゆびで動かした分もリセットして、きれいに並べなおす
+    state.stage.querySelectorAll('.fairy-card').forEach(c=>{ c._moved = false; c._scale = 1; });
+    state.stage.classList.add('relayout');
+    layout(state.stage);
+    state.force = false;
+    setTimeout(()=>{ if(state.stage) state.stage.classList.remove('relayout'); }, 1000);
+  }
+  /* ならべかた：2×2 → 集合写真 → 横一列 → … */
+  function cycleMode(){
+    const order = ['grid','group','row'];
+    const m = order[(order.indexOf(state.mode)+1) % order.length];
+    setMode(m); return m;
+  }
+
   /* ---- 人数に合わせて並べる ---- */
   function layout(stage){
     const cards = [...stage.querySelectorAll('.fairy-card')];
     const n = cards.length; if(!n) return;
     const W = stage.clientWidth, H = stage.clientHeight;
     const portrait = H >= W*0.95;
+    if(state.mode === 'group' && n >= 2){ layoutGroup(stage, cards, W, H, portrait); return; }
     let cells, rows, cols;
-    if(portrait){
+    if(portrait && state.mode !== 'row'){
       cols = (n===1) ? 1 : 2; rows = (n>2) ? 2 : 1;
       if(n===1) cells = [[.5,.5]];
       else if(n===2) cells = [[.27,.56],[.73,.56]];
@@ -276,13 +337,10 @@ window.FairySequencer = (function () {
     cards.forEach((card,i)=>{
       const f = FAIRIES.find(x=>x.id===card.dataset.fid);
       const c = cells[i] || [.5,.5];
-      card.style.setProperty('--pos-x', (c[0]*100)+'%');
-      card.style.setProperty('--pos-y', (c[1]*100)+'%');
+      const keep = placeCard(card, c[0], c[1]);
       const imgH = bodyH / f.img.bodyRatio;
-      card.style.setProperty('--img-h', imgH.toFixed(1)+'px');
-      /* 画像の中で体が中心からずれている分（リアの虹など）をもどす */
-      const im = card.querySelector('.fairy-img');
-      if(im) im.style.left = (-(f.img.cx - 0.5) * imgH * f.img.aspect).toFixed(1) + 'px';
+      setCardSize(card, f, imgH);                         // （体が中心からずれている分の位置あわせも中でやる）
+      if(!keep){ const z = 10 + Math.round(c[1]*40); card.style.zIndex = z; card.dataset.z = z; }
       card.style.setProperty('--bubble-w', Math.min(300, cellW*0.94).toFixed(0)+'px');
       card.style.setProperty('--nm-fs', (compact ? 12 : 14)+'px');
       card.style.setProperty('--bb-fs', (compact ? 12.5 : 14)+'px');
@@ -337,11 +395,81 @@ window.FairySequencer = (function () {
       stage.insertBefore(card, state.layer);
     });
     layout(stage);
+    bindGestures(stage);
     if(!state.resizeBound){
       state.resizeBound = true;
       window.addEventListener('resize', ()=>{ if(state.stage) layout(state.stage); });
       window.addEventListener('orientationchange', ()=> setTimeout(()=>{ if(state.stage) layout(state.stage); }, 250));
     }
+  }
+
+  /* ---- ゆびの操作：ドラッグで動かす／2本ゆびで大きさ／ちょんとタップでジャンプ ---- */
+  function bindGestures(stage){
+    if(stage._gestBound) return; stage._gestBound = true;
+    stage.style.touchAction = 'none';
+    const pts = new Map(); let g = null;
+    const dist = ()=>{ const a=[...pts.values()]; return a.length<2 ? 0 : Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y); };
+    const fOf = card => FAIRIES.find(x=>x.id===card.dataset.fid);
+    const setFront = card => { card.style.zIndex = 90; };
+    const settleZ = card => { const z = 10 + Math.round((card._fy!=null?card._fy:.5)*40); card.dataset.z = z; if(card.dataset.state!=='jumping') card.style.zIndex = z; };
+
+    stage.addEventListener('pointerdown', e=>{
+      const card = e.target.closest ? e.target.closest('.fairy-card') : null;
+      if(!card && !(g && pts.size===1)) return;          // 何もない所は無視（2本目のゆびは、どこでもOK）
+      e.preventDefault();
+      try{ stage.setPointerCapture(e.pointerId); }catch(_){}
+      pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+      const r = stage.getBoundingClientRect();
+      if(pts.size === 1){
+        g = { card, mode:'tap', sx:e.clientX, sy:e.clientY, W:r.width, H:r.height,
+              cx:(card._fx!=null?card._fx:.5)*r.width, cy:(card._fy!=null?card._fy:.5)*r.height };
+      } else if(pts.size === 2 && g){
+        g.mode = 'pinch'; g.d0 = dist(); g.s0 = g.card._scale || 1;
+      }
+    });
+    stage.addEventListener('pointermove', e=>{
+      if(!g || !pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+      const card = g.card;
+      if(g.mode === 'pinch'){
+        const d = dist();
+        if(g.d0 > 10){ card._scale = clamp(g.s0 * d / g.d0, 0.45, 2.8); card._moved = true; applySize(card); }
+        return;
+      }
+      const dx = e.clientX - g.sx, dy = e.clientY - g.sy;
+      if(g.mode === 'tap' && Math.hypot(dx,dy) > 9){ g.mode = 'drag'; card.classList.add('dragging'); setFront(card); card._moved = true; }
+      if(g.mode === 'drag'){
+        const nx = clamp(g.cx + dx, 0, g.W), ny = clamp(g.cy + dy, 0, g.H);
+        card._fx = nx / g.W; card._fy = ny / g.H;
+        card.style.setProperty('--pos-x', (card._fx*100)+'%');
+        card.style.setProperty('--pos-y', (card._fy*100)+'%');
+      }
+    });
+    const end = e=>{
+      if(!pts.has(e.pointerId)) return;
+      pts.delete(e.pointerId);
+      try{ stage.releasePointerCapture(e.pointerId); }catch(_){}
+      if(!g) return;
+      const card = g.card;
+      if(pts.size === 0){
+        if(g.mode === 'tap' && e.type === 'pointerup') onJump(card, fOf(card));    // ちょんと触っただけ → ジャンプ
+        card.classList.remove('dragging'); settleZ(card); g = null;
+      } else if(g.mode === 'pinch'){
+        // 2本→1本になったら、残ったゆびでそのままドラッグを続ける
+        const rem = [...pts.values()][0], r = stage.getBoundingClientRect();
+        g.mode = 'drag'; g.sx = rem.x; g.sy = rem.y; g.W = r.width; g.H = r.height;
+        g.cx = (card._fx!=null?card._fx:.5)*r.width; g.cy = (card._fy!=null?card._fy:.5)*r.height;
+        card.classList.add('dragging');
+      }
+    };
+    stage.addEventListener('pointerup', end);
+    stage.addEventListener('pointercancel', end);
+    // パソコン：マウスのホイールで大きさを変える
+    stage.addEventListener('wheel', e=>{
+      const card = e.target.closest ? e.target.closest('.fairy-card') : null; if(!card) return;
+      e.preventDefault();
+      card._scale = clamp((card._scale||1) * (e.deltaY < 0 ? 1.08 : 0.926), 0.45, 2.8); card._moved = true; applySize(card);
+    }, {passive:false});
   }
 
   function runSequence(stage, opts){
@@ -369,7 +497,6 @@ window.FairySequencer = (function () {
       FairyFX.burst(state.layer, r.left+r.width/2, r.top+r.height*0.4, 18, fxOpts(f,1.6));
     }, 250);
 
-    card.addEventListener('pointerdown', e=>{ e.preventDefault(); onJump(card,f); });
     scheduleBlink(card,f);
     idleSparkles(card,f);
     state.speakers.push(card);
@@ -416,9 +543,8 @@ window.FairySequencer = (function () {
     const img  = card.querySelector('.fairy-img');
     const jumpEl = card.querySelector('.fairy-jump');
     const T = f.frames.jumpMs || 2800;
-    const cellH = +card.dataset.cellH || 300;
-    const bodyH = +card.dataset.bodyH || 160;
-    const H = Math.min(cellH*0.34, 150), S = 1.22;
+    const bodyH = ((img && img.offsetHeight) || 160) * (f.img.bodyRatio || 0.9);   // いまの大きさ（ゆびで変えた分もふくむ）
+    const H = Math.min(Math.max(bodyH*0.5, 40), 150), S = 1.22;
 
     /* 動き：しゃがむ → ぐーんと跳ぶ → 空中でふわっ → ふんわり着地 */
     if(jumpEl.animate){
@@ -481,5 +607,5 @@ window.FairySequencer = (function () {
   /* ===== ホーム連携用 ===== */
   function getDiscoveredMap(){ return FairyStore.get(); }
 
-  return { buildNodes, runSequence, getDiscoveredMap, layout };
+  return { buildNodes, runSequence, getDiscoveredMap, layout, setMode, cycleMode, getMode:()=>state.mode };
 })();

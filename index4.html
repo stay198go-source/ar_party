@@ -2,54 +2,111 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>AR Party 🌹☁️✨🍃 4 人の妖精フィナーレ</title>
 <style>
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;overflow:hidden;position:relative;font-family:'M PLUS Rounded 1c','Hiragino Maru Gothic Pro',sans-serif;
-       background:linear-gradient(135deg,#fff0c4 0%,#ffdde1 50%,#d7e9fc 100%);color:#4a3b32;-webkit-user-select:none;user-select:none}
+       background:linear-gradient(135deg,#fff0c4 0%,#ffdde1 50%,#d7e9fc 100%);color:#4a3b32;-webkit-user-select:none;user-select:none;touch-action:none}
+
+  /* ---------- 上のバー・下のバー ---------- */
   #topbar,#bottombar{position:fixed;left:0;right:0;z-index:100;background:rgba(255,255,255,.78);
        -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);display:flex;align-items:center}
   #topbar{top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.5)}
-  #bottombar{bottom:0;padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px));justify-content:center;gap:8px;border-top:1px solid rgba(255,255,255,.5)}
+  #bottombar{bottom:0;padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px));justify-content:center;border-top:1px solid rgba(255,255,255,.5)}
   #topbar h1{margin:0;font-size:14px;font-weight:700;color:#4a3b32}
   #topbar h1 small{display:block;font-size:10px;color:#777;font-weight:500}
   .nav-btn{background:linear-gradient(90deg,#ff4081,#ff9800);color:#fff;border:none;padding:9px 16px;border-radius:20px;white-space:nowrap;
            font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.2);text-decoration:none;display:inline-block;font-family:inherit}
   .nav-btn:disabled{opacity:.45;cursor:not-allowed}
-  .ghost-btn{background:rgba(255,255,255,.7);color:#555;border:1px solid #ccc;padding:10px 16px;border-radius:22px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
-  /* ステージ：上バーと下バーの間ぜんぶ */
-  #camBg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;display:none}
-  #stage{z-index:3;position:fixed;left:0;right:0;top:calc(56px + env(safe-area-inset-top,0px));bottom:calc(66px + env(safe-area-inset-bottom,0px));overflow:hidden}
+  .ghost-btn{background:rgba(255,255,255,.7);color:#555;border:1px solid #ccc;padding:10px 16px;border-radius:22px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+  #barNormal{display:flex;gap:8px;justify-content:center;flex-wrap:nowrap}
+
+  /* ---------- ステージ ---------- */
+  #camBg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;display:none;background:#000}
+  #camBg.mirror{transform:scaleX(-1)}
+  #stage{z-index:3;position:fixed;left:0;right:0;top:calc(56px + env(safe-area-inset-top,0px));bottom:calc(66px + env(safe-area-inset-bottom,0px));overflow:hidden;touch-action:none}
   #confetti{position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden}
   .confetti{position:absolute;top:-10%;border-radius:50%;opacity:0;animation:confettiFall linear infinite}
   @keyframes confettiFall{0%{transform:translateY(0) rotate(0);opacity:0}15%{opacity:.55}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
-/* 📷 カメラ起動中はコメント（吹き出し）を隠す設定 */
-body.cam-active .speech, 
-  body.cam-active .bubble, 
-  body.cam-active [class*="comment"], 
-  body.cam-active [class*="speech"] {
-    display: none !important;
-  }
+
+  /* ---------- カメラで見るとき ---------- */
+  .cam-only{display:none}
+  body.cam-on .cam-only{display:flex}
+  body.cam-on .normal-only{display:none!important}
+  body.cam-on #stage{top:0;bottom:0}                              /* 画面ぜんぶが「妖精をおける場所」 */
+  body.cam-on #confetti{display:none}
+  body.cam-on #topbar{background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,0));border-bottom:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+  body.cam-on #bottombar{background:linear-gradient(0deg,rgba(0,0,0,.5),rgba(0,0,0,0));border-top:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding-top:26px}
+  body.cam-on:not(.show-names) .fairy-name, body.cam-on:not(.show-names) .fairy-bubble{display:none!important}   /* 写真のじゃまになる文字は消す */
+  .chip{border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.55);border-radius:999px;padding:8px 14px;text-decoration:none;white-space:nowrap}
+
+  /* カメラ用の下のボタン（アイコンだけ） */
+  #barCam{align-items:flex-end;justify-content:center;gap:12px;width:100%;max-width:440px}
+  .ic{display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:none;color:#fff;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;text-decoration:none;
+      text-shadow:0 1px 4px rgba(0,0,0,.7);min-width:50px}
+  .ic .c{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:21px;line-height:1;
+      background:rgba(255,255,255,.28);border:1.5px solid rgba(255,255,255,.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 3px 10px rgba(0,0,0,.25)}
+  .ic.on .c{background:rgba(255,213,79,.85);border-color:#fff}
+  .ic:active .c{transform:scale(.92)}
+  .shutter{width:74px;height:74px;border-radius:50%;border:5px solid #fff;background:rgba(255,255,255,.25);padding:0;cursor:pointer;position:relative;box-shadow:0 4px 16px rgba(0,0,0,.4);flex:none}
+  .shutter::after{content:'';position:absolute;inset:5px;border-radius:50%;background:#fff;transition:transform .1s}
+  .shutter:active::after{transform:scale(.86)}
+
+  /* ひとこと案内・ならびかたの表示 */
+  .pill{position:fixed;left:50%;transform:translate(-50%,8px);z-index:120;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;line-height:1.5;border-radius:16px;padding:8px 14px;
+        text-align:center;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .35s,transform .35s}
+  .pill.show{opacity:1;transform:translate(-50%,0)}
+  #tip{top:calc(66px + env(safe-area-inset-top,0px))}
+  #arrToast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+
+  /* 撮影 */
+  #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:300}
+  #flash.go{animation:flash .45s ease-out}
+  @keyframes flash{0%{opacity:.95}100%{opacity:0}}
+  #photoView{position:fixed;inset:0;z-index:310;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px;background:rgba(40,20,40,.86)}
+  #photoView.on{display:flex}
+  #photoView img{max-width:88vw;max-height:66vh;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.5);background:#fff}
+  #photoView p{margin:0;color:#fff;font-size:12px;text-align:center;line-height:1.7}
+  #photoView .row{display:flex;gap:10px}
 </style>
 </head>
 <body>
 <video id="camBg" playsinline muted autoplay></video>
 <div id="confetti"></div>
+
 <nav id="topbar">
-  <h1>🌹☁️✨🍃 4 人の妖精フィナーレ
-    <small>data-driven sequencer · 4/4</small></h1>
-  <a class="nav-btn" href="webar_fairy_world.html">🏠 ホームへ戻る</a>
+  <h1 class="normal-only">🌹☁️✨🍃 4 人の妖精フィナーレ
+    <small>妖精をゆびで動かしてみてね</small></h1>
+  <a class="nav-btn normal-only" href="webar_fairy_world.html">🏠 ホームへ戻る</a>
+  <button class="chip cam-only" id="camStop">✕ カメラをとめる</button>
+  <a class="chip cam-only" href="webar_fairy_world.html">🏠 ホーム</a>
 </nav>
 
 <div id="stage"></div>
+<div class="pill" id="tip">👆 ドラッグで うごかす ／ ✌️ 2本ゆびで 大きさ ／ タップで ジャンプ</div>
+<div class="pill" id="arrToast"></div>
+<div id="flash"></div>
+<div id="photoView">
+  <img id="photoImg" alt="">
+  <p>📤「ほぞん・シェア」→「画像を保存」をえらぶと、写真アプリに入るよ</p>
+  <div class="row"><button class="nav-btn" id="photoSave">📤 ほぞん・シェア</button><button class="ghost-btn" id="photoClose">🔁 もう一度とる</button></div>
+</div>
 
 <nav id="bottombar">
-  <button class="ghost-btn" onclick="location.href='webar_fairy_world.html'">◀ ホームへ</button>
-  <button class="ghost-btn" id="camBtn">📷 カメラで見る</button>
-  <button class="nav-btn" id="done-btn" disabled
-          onclick="location.href='zukan.html'">📖 ずかんを見る</button>
+  <div id="barNormal" class="normal-only">
+    <button class="ghost-btn" onclick="location.href='webar_fairy_world.html'">◀ ホームへ</button>
+    <button class="ghost-btn" id="camBtn">📷 カメラで見る</button>
+    <button class="nav-btn" id="done-btn" disabled onclick="location.href='zukan.html'">📖 ずかんを見る</button>
+  </div>
+  <div id="barCam" class="cam-only">
+    <button class="ic" id="icFlip" aria-label="カメラをきりかえる"><span class="c">🔄</span>きりかえ</button>
+    <button class="ic" id="icArr"  aria-label="ならびかたをかえる"><span class="c">✨</span>ならべかえ</button>
+    <button class="shutter" id="shotBtn" aria-label="しゃしんをとる"></button>
+    <button class="ic" id="icName" aria-label="なまえをだす"><span class="c">🏷️</span>なまえ</button>
+    <a class="ic" href="zukan.html" aria-label="ずかん"><span class="c">📖</span>ずかん</a>
+  </div>
 </nav>
 
 <script src="fairies.js"></script>
@@ -69,56 +126,124 @@ body.cam-active .speech,
       wrap.appendChild(c);
     }
   })();
-  /* 📷 カメラで見る：4人がまわりの景色にいっしょに浮かぶ */
-  (function(){
-    const btn = document.getElementById('camBtn'), vid = document.getElementById('camBg');
-    let on = false, stream = null;
-    
-    btn.addEventListener('click', async ()=>{
-      // ▼ ステージ（#stage）の中にある、妖精のまわりのコメントや吹き出し要素をすべて取得して隠す
-      const stage = document.getElementById('stage');
-      const commentElements = stage ? stage.querySelectorAll('div, span') : [];
 
-      if(on){ 
-        if(stream) stream.getTracks().forEach(t=>t.stop()); 
-        vid.style.display='none'; 
-        btn.textContent='📷 カメラで見る'; 
-        
-        // カメラをとめたとき：コメントを元に戻す
-        commentElements.forEach(el => {
-          if (el.dataset.originalDisplay !== undefined) {
-            el.style.display = el.dataset.originalDisplay;
-          }
+  const stage = document.getElementById('stage');
+  const $ = id => document.getElementById(id);
+
+  /* 小さなお知らせ（しばらくして消える） */
+  function pill(el, text, ms){
+    if(text != null) el.textContent = text;
+    el.classList.add('show'); clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), ms || 3200);
+  }
+
+  /* ===== 📷 カメラで見る ／ 📸 しゃしん ===== */
+  (function(){
+    const vid = $('camBg'), flash = $('flash'), pv = $('photoView'), pimg = $('photoImg');
+    let on = false, stream = null, facing = 'environment', mirror = false, lastBlob = null, lastUrl = null;
+
+    async function startCam(want){
+      const old = stream;
+      const s = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:want } }, audio:false });
+      if(old) old.getTracks().forEach(t => t.stop());
+      stream = s; vid.srcObject = s; await vid.play();
+      const st = (s.getVideoTracks()[0].getSettings && s.getVideoTracks()[0].getSettings()) || {};
+      facing = want;
+      mirror = st.facingMode ? (st.facingMode === 'user') : (want === 'user');     // 自撮りカメラの時は、鏡のように左右反転
+      vid.classList.toggle('mirror', mirror);
+      vid.style.display = 'block';
+    }
+    async function camOn(){
+      try{ await startCam('environment'); }
+      catch(e){ alert('カメラが使えませんでした。ブラウザのカメラ許可をたしかめてね'); return; }
+      on = true;
+      document.body.classList.add('cam-on');
+      FairySequencer.setMode('group');
+      pill($('tip'), '👆 ドラッグで うごかす ／ ✌️ 2本ゆびで 大きさ ／ タップで ジャンプ', 5200);
+    }
+    function camOff(){
+      if(stream) stream.getTracks().forEach(t => t.stop());
+      stream = null; vid.style.display = 'none'; on = false;
+      document.body.classList.remove('cam-on', 'show-names'); $('icName').classList.remove('on');
+      FairySequencer.setMode('grid');
+    }
+    $('camBtn').addEventListener('click', camOn);
+    $('camStop').addEventListener('click', camOff);
+
+    // 🔄 前のカメラ ⇄ うしろのカメラ
+    $('icFlip').addEventListener('click', async () => {
+      try{ await startCam(facing === 'environment' ? 'user' : 'environment');
+           pill($('arrToast'), facing === 'user' ? '🤳 じどりカメラ' : '📷 うしろのカメラ', 1800); }
+      catch(e){ pill($('arrToast'), 'このスマホでは、カメラを切りかえられなかったよ', 2800); }
+    });
+
+    // ✨ ならびかたを順番にかえる
+    const NAMES = { grid:'2×2に ならべたよ', group:'集合写真みたいに ならべたよ', row:'よこ一列に ならべたよ' };
+    $('icArr').addEventListener('click', () => { const m = FairySequencer.cycleMode(); pill($('arrToast'), '✨ ' + NAMES[m], 2200); });
+
+    // 🏷️ 名前をだす／けす（写真には入りません）
+    $('icName').addEventListener('click', () => {
+      const o = document.body.classList.toggle('show-names'); $('icName').classList.toggle('on', o);
+      pill($('arrToast'), o ? '🏷️ なまえを出したよ（写真には入らないよ）' : '🏷️ なまえを消したよ', 2200);
+    });
+
+    /* カメラの映像＋妖精＋キラキラを1まいの画像にまとめる（文字・ボタンは入れない） */
+    function capture(){
+      return new Promise(resolve => {
+        const W = window.innerWidth, H = window.innerHeight;
+        const k = Math.min(3, 1800 / Math.max(W, H));
+        const cv = document.createElement('canvas'); cv.width = Math.round(W*k); cv.height = Math.round(H*k);
+        const ctx = cv.getContext('2d');
+        // 背景：カメラ映像（画面の見えかたと同じ切り取り・同じ向き）
+        if(vid.videoWidth){
+          const sc = Math.max(W / vid.videoWidth, H / vid.videoHeight);
+          const dw = vid.videoWidth * sc, dh = vid.videoHeight * sc;
+          ctx.save();
+          if(mirror){ ctx.translate(cv.width, 0); ctx.scale(-1, 1); }
+          ctx.drawImage(vid, (W-dw)/2*k, (H-dh)/2*k, dw*k, dh*k);
+          ctx.restore();
+        } else { ctx.fillStyle = '#ffdde1'; ctx.fillRect(0, 0, cv.width, cv.height); }
+        // 妖精：うしろ→まえの順にえがく
+        const cards = [...stage.querySelectorAll('.fairy-card')].filter(c => !c.classList.contains('pre'))
+                       .sort((a, b) => (parseInt(a.style.zIndex) || 0) - (parseInt(b.style.zIndex) || 0));
+        ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.28)'; ctx.shadowBlur = 16*k; ctx.shadowOffsetY = 8*k;
+        cards.forEach(c => { const im = c.querySelector('.fairy-img'); if(!im) return; const r = im.getBoundingClientRect();
+          ctx.drawImage(im, r.left*k, r.top*k, r.width*k, r.height*k); });
+        ctx.restore();
+        // キラキラ
+        document.querySelectorAll('.fx-spark').forEach(el => {
+          const r = el.getBoundingClientRect(), cs = getComputedStyle(el), op = parseFloat(cs.opacity);
+          if(!(op > 0.02)) return;
+          ctx.save(); ctx.globalAlpha = Math.min(1, op); ctx.fillStyle = cs.color; ctx.shadowColor = cs.color; ctx.shadowBlur = 8*k;
+          ctx.font = 'bold ' + Math.max(8, r.height*0.95)*k + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(el.textContent, (r.left + r.width/2)*k, (r.top + r.height/2)*k); ctx.restore();
         });
-        
-        on=false; 
-        return; 
+        cv.toBlob(b => resolve(b), 'image/jpeg', 0.92);
+      });
+    }
+    $('shotBtn').addEventListener('click', async () => {
+      flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
+      if(navigator.vibrate) try{ navigator.vibrate(30); }catch(e){}
+      const blob = await capture(); if(!blob) return;
+      lastBlob = blob; if(lastUrl) URL.revokeObjectURL(lastUrl);
+      lastUrl = URL.createObjectURL(blob); pimg.src = lastUrl; pv.classList.add('on');
+    });
+    $('photoClose').addEventListener('click', () => pv.classList.remove('on'));
+    $('photoSave').addEventListener('click', async () => {
+      if(!lastBlob) return;
+      const file = new File([lastBlob], 'fairy-photo.jpg', { type:'image/jpeg' });
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        try{ await navigator.share({ files:[file] }); return; }catch(e){ if(e && e.name === 'AbortError') return; }
       }
-      try{
-        stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:'environment'} }, audio:false });
-        vid.srcObject = stream; 
-        await vid.play(); 
-        vid.style.display='block'; 
-        btn.textContent='📷 カメラをとめる'; 
-        
-        // カメラを起動したとき：妖精以外のコメント部分を判定して非表示にする
-        commentElements.forEach(el => {
-          // 妖精の画像本体ではなく、文字や吹き出しが含まれていそうな要素を対象にする
-          if (el.innerText && el.innerText.trim() !== '' && el.children.length < 3) {
-            el.dataset.originalDisplay = el.style.display;
-            el.style.display = 'none';
-          }
-        });
-        
-        on=true;
-      }catch(e){ alert('カメラが使えませんでした。ブラウザのカメラ許可をたしかめてね'); }
+      const a = document.createElement('a'); a.href = lastUrl; a.download = 'fairy-photo.jpg'; document.body.appendChild(a); a.click(); a.remove();
     });
   })();
-  const stage = document.getElementById('stage');
+
   const IDS = ['rose','ria','tink','lily'];
   FairySequencer.buildNodes(stage, { onlyIds: IDS });
   FairySequencer.runSequence(stage, { onlyIds: IDS });
-  setTimeout(()=>{ const b = document.getElementById('done-btn'); if(b) b.disabled = false; }, 7500);
+  setTimeout(() => pill($('tip'), '👆 ドラッグで うごかす ／ ✌️ 2本ゆびで 大きさ ／ タップで ジャンプ', 5000), 2500);
+  setTimeout(() => { const b = $('done-btn'); if(b) b.disabled = false; }, 4000);
 </script>
 </body>
 </html>
