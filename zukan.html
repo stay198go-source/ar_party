@@ -37,7 +37,7 @@
   .entry .no{position:absolute;left:10px;top:8px;font-size:11px;font-weight:700;color:var(--fa);opacity:.8}
   .entry .emb{position:relative;width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;margin-top:6px}
   .entry .emb img{max-width:92%;max-height:92%;object-fit:contain;-webkit-user-drag:none;pointer-events:none}
-  .entry.found .emb img{filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));animation:embFloat 5s ease-in-out infinite}
+  .entry.found .emb img{filter:drop-shadow(0 0 1.5px rgba(110,50,75,.5)) drop-shadow(0 6px 10px rgba(0,0,0,.18));animation:embFloat 5s ease-in-out infinite}
   @keyframes embFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
   .entry.locked{cursor:default;border-style:dashed;background:rgba(255,255,255,.6)}
   .entry.locked .emb img{filter:brightness(0) opacity(.16) blur(1.2px)}
@@ -51,6 +51,7 @@
   .entry.pop{animation:popIn 1.4s ease-out 1}
   @keyframes popIn{0%{transform:scale(.9)}35%{transform:scale(1.07);box-shadow:0 0 0 14px rgba(255,213,79,.5)}100%{transform:scale(1);box-shadow:0 8px 22px rgba(0,0,0,.08)}}
 
+  .ver{margin:18px 0 4px;text-align:center;font-size:10px;color:#b59aa8}
   .complete{margin:22px auto 0;max-width:420px;text-align:center;background:rgba(255,255,255,.85);border-radius:22px;padding:16px;font-size:13px;font-weight:700;color:#c2185b;border:2px dashed #ffb7c5}
   .complete .big{font-size:30px;line-height:1.2}
 
@@ -61,7 +62,7 @@
   .btn.sub{color:#c2185b;background:#fff;border:2px solid #ffb7c5}
 
   /* ---------- 詳しいカード（タップで開く） ---------- */
-  .veil{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(60,20,50,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .veil{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(50,20,45,.72)}
   .veil.on{display:flex;animation:fadeIn .3s both}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
   .sheet{position:relative;width:min(92vw,420px);max-height:90vh;overflow:auto;background:linear-gradient(rgba(255,255,255,.76),rgba(255,255,255,.70)),var(--fc);border:4px solid var(--fc);border-radius:28px;
@@ -69,7 +70,7 @@
   @keyframes sheetIn{from{transform:scale(.8) translateY(30px);opacity:0}to{transform:none;opacity:1}}
   .sheet .x{position:absolute;right:12px;top:10px;width:34px;height:34px;border-radius:50%;border:none;background:#ffe3ec;color:#c2185b;font-size:18px;font-weight:700;cursor:pointer}
   .sheet .big{width:min(62vw,260px);aspect-ratio:1/1;margin:6px auto 0;display:flex;align-items:center;justify-content:center}
-  .sheet .big img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 10px 16px rgba(0,0,0,.22));animation:embFloat 5s ease-in-out infinite}
+  .sheet .big img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 0 1.5px rgba(110,50,75,.55)) drop-shadow(0 8px 12px rgba(0,0,0,.22));animation:embFloat 5s ease-in-out infinite}
   .sheet h2{margin:6px 0 0;font-size:24px;color:var(--fa)}
   .sheet .role{font-size:13px;font-weight:700;color:var(--fa)}
   .sheet .say{margin:10px 0;font-size:14px;line-height:1.7;color:#5a4a42}
@@ -85,7 +86,7 @@
   .reveal .big::before{content:'';position:absolute;inset:-14%;border-radius:50%;pointer-events:none;
     background:radial-gradient(circle,rgba(255,255,255,.9) 0%,var(--fc) 36%,rgba(255,255,255,0) 70%);opacity:0;filter:blur(6px);animation:halo 1.8s ease-out .1s both}
   @keyframes halo{0%{opacity:0;transform:scale(.4)}40%{opacity:.7;transform:scale(1.05)}100%{opacity:.32;transform:scale(1)}}
-  .reveal .big img{animation:revealIn 1.2s cubic-bezier(.2,.9,.3,1.15) both, embFloat 5s ease-in-out 1.2s infinite;filter:drop-shadow(0 8px 14px rgba(0,0,0,.25))}
+  .reveal .big img{animation:revealIn 1.2s cubic-bezier(.2,.9,.3,1.15) both, embFloat 5s ease-in-out 1.2s infinite;filter:drop-shadow(0 0 1.5px rgba(110,50,75,.55)) drop-shadow(0 8px 12px rgba(0,0,0,.22))}
   @keyframes revealIn{0%{transform:scale(.15) rotate(-22deg);opacity:0}55%{transform:scale(1.12) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
 </style>
 </head>
@@ -104,6 +105,7 @@
   <div class="bar"><div id="barFill"></div></div>
   <div class="grid" id="grid"></div>
   <div class="complete" id="complete" style="display:none"></div>
+  <div class="ver">ずかん ver.8（10/6）</div>
 </main>
 
 <nav class="bottom" id="bottomNav"></nav>
@@ -221,7 +223,8 @@
       '<div class="big"><img src="' + f.emblem + '" alt="' + f.name + '"></div>' +
       '<h2>' + f.name + '</h2><div class="role">' + f.role + '</div>' +
       '<div class="say">' + (f.subtitle || '') + '</div>' +
-      '<button class="btn main" id="revealOk" style="margin-top:6px">✨ ずかんを見る</button>';
+      '<button class="btn main" id="revealOk" style="margin-top:6px">✨ ずかんを見る</button>' +
+      '<div class="ver" style="margin:8px 0 0">ver.8</div>';
     const rimg = new Image(); rimg.src = f.emblem;
     const ready = new Promise(res => {
       if(rimg.complete && rimg.naturalWidth){ res(); return; }
