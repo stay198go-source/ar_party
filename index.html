@@ -74,7 +74,7 @@
 
 <div class="start-veil" id="startVeil">
   <h1>🌹 AR Party</h1>
-  <p>「はじめる」をタップしてカメラを起動。<br/>公園のオブジェにスマホを向けるとローズが現れるよ ✨</p>
+  <p>「はじめる」をタップしてカメラを起動。<br/>公園のオブジェにスマホを向けるとローズが現れるよ ✨<br/><span style="font-size:11px;opacity:.8">🔊 音が出るよ（マナーモードだと、鳴らないことがあるよ）</span></p>
   <button id="startBtn">🌹 はじめる</button>
 </div>
 
@@ -116,7 +116,7 @@
   // ============================================================
   // (1) マーカーの「画面上の位置と大きさ」を毎フレーム調べる
   // ============================================================
-  const track = { found:false, x:0, y:0, markerPx:0 };
+  const track = { found:false, visible:false, x:0, y:0, markerPx:0 };
 
   AFRAME.registerComponent('screen-anchor', {
     init: function(){
@@ -126,6 +126,7 @@
     tick: function(){
       const obj = this.el.object3D;
       const cam = this.el.sceneEl.camera;
+      track.visible = !!(obj && obj.visible);          // いま、マーカーが見えているか
       if(!obj.visible || !cam){ return; }
       obj.updateWorldMatrix(true, false);
       cam.updateMatrixWorld();
@@ -192,15 +193,21 @@
 
     const W = window.innerWidth, H = window.innerHeight;
 
-    // --- ローズの基本の大きさ（マーカーより大きく・画面に対して大きく）---
-    let h = clamp(track.markerPx * 1.15, H * 0.30, H * 0.44);
-    h = Math.min(h, (W * 0.98) / META.aspect);          // 横にはみ出さない
-    const w = h * META.aspect;
-
-    // --- 目標位置：マーカーの中心の少し上。体が画面から出ないよう内側に寄せる ---
-    const bodyHalf = META.bodyW * w * 0.5;
-    let tx = clamp(track.x, bodyHalf + 6, W - bodyHalf - 6);
-    let ty = clamp(track.y - h * 0.10, h * 0.5 + 70, H - h * 0.45 - 90);
+    let h, tx, ty;
+    if(track.visible){
+      // --- ローズの基本の大きさ（マーカーより大きく・画面に対して大きく）---
+      h = clamp(track.markerPx * 1.15, H * 0.30, H * 0.44);
+      h = Math.min(h, (W * 0.98) / META.aspect);          // 横にはみ出さない
+      const w = h * META.aspect;
+      // --- 目標位置：マーカーの中心の少し上。体が画面から出ないよう内側に寄せる ---
+      const bodyHalf = META.bodyW * w * 0.5;
+      tx = clamp(track.x, bodyHalf + 6, W - bodyHalf - 6);
+      ty = clamp(track.y - h * 0.10, h * 0.5 + 70, H - h * 0.45 - 90);
+    } else {
+      // --- マーカーが見えなくなっても、ローズは消えない。画面のまんなかに、ふわっと移動してとどまる ---
+      h = Math.min(H * 0.40, (W * 0.98) / META.aspect);
+      tx = W / 2; ty = H * 0.48;
+    }
 
     if(!S.seen){ S.cur.x = tx; S.cur.y = ty; S.cur.h = h; S.seen = true; }
     const k = 1 - Math.pow(0.001, dt / 1000);          // なめらか追従
@@ -290,6 +297,7 @@
   function onJump(){
     if(!S.shown || S.jumping) return;
     S.jumping = true; S.jumpStart = performance.now();
+    FairySound.jump(); setTimeout(()=>FairySound.land(), JUMP_MS * 0.72);
     // 画像を「ゆっくり」順番に切り替える
     let acc = 0;
     ROSE.frames.jump.forEach(([fr, frac]) => {
@@ -305,7 +313,7 @@
     setTimeout(()=>{ const p = bodyPoint(); FairyFX.burst(fx, p.x, p.y, 34, fxo(2.4)); }, JUMP_MS * .70);
   }
   document.addEventListener('pointerdown', e => {
-    if(e.target.closest && e.target.closest('.home-btn, .start-veil')) return;
+    if(e.target.closest && e.target.closest('.home-btn, .start-veil, #sndToggle')) return;
     onJump();
   });
 
@@ -313,7 +321,7 @@
   // (7) ふきだし
   // ============================================================
   const voices = [
-    'こんにちは！バラの妖精ローズよ 🌹',
+    'はじめまして！バラの妖精ローズよ 🌹',
     'タップして私のジャンプを見てね ✨',
     'いい香りと一緒にあそぼ〜 💕',
     'ローズの香りで満たすわ 🌹',
@@ -344,9 +352,11 @@
   let lostTimer = null;
   function showRose(){
     if(lostTimer){ clearTimeout(lostTimer); lostTimer = null; }
-    if(S.shown) return;
+    if(S.shown) return;                 // すでに登場ずみ（もう一度マーカーを映すと、またそこについていく）
     markDiscovered();
     S.shown = true; S.seen = false; S.enterT = 0;
+    FairySound.register();                                                   // ずかんにとうろく！のキラキラ音
+    setTimeout(()=>FairySound.say('voice_rose_hello', 'はじめまして！ローズよ。よろしくね！', 'rose'), 1100);   // かわいい声で「はじめまして」
     box.classList.add('on');
     homeBtn.classList.add('show'); zukanBtn.classList.add('show');
     hint.textContent = '💡 ローズをタップすると、画面いっぱいにジャンプするよ 🌹';
@@ -355,17 +365,7 @@
     setTimeout(()=>{ const p = bodyPoint(); FairyFX.burst(fx, p.x, p.y, 26, fxo(2)); }, 260);
   }
   function hideRose(){
-    if(lostTimer) return;
-    // 一瞬見失っただけでは消さない（ちらつき防止）
-    lostTimer = setTimeout(()=>{
-      lostTimer = null;
-      S.shown = false; S.jumping = false;
-      box.classList.remove('on');
-      overlay.classList.remove('hide');
-      hint.textContent = '💡 ローズをタップすると跳ねるよ 🌹';
-      homeBtn.classList.remove('show'); zukanBtn.classList.remove('show');
-      stopBubbles();
-    }, 900);
+    // いちど見つけたら、マーカーからはずれても、ローズはのこる（もう一度よみとらなくてOK）
   }
   roseTarget.addEventListener('targetFound', showRose);
   roseTarget.addEventListener('targetLost',  hideRose);
@@ -374,6 +374,7 @@
   // (9) 「はじめる」ボタン
   // ============================================================
   startBtn.addEventListener('click', ()=>{
+    FairySound.unlock();                       // iPhone は、タップの時に音を有効にする
     startVeil.classList.add('hide');
     setTimeout(()=> startVeil.style.display = 'none', 500);
     const startAR = ()=>{
@@ -392,7 +393,7 @@
   // ============================================================
   if(new URLSearchParams(location.search).get('dev') === '1'){
     startVeil.style.display = 'none';
-    track.x = window.innerWidth/2; track.y = window.innerHeight*0.55; track.markerPx = window.innerWidth*0.6;
+    track.visible = true; track.x = window.innerWidth/2; track.y = window.innerHeight*0.55; track.markerPx = window.innerWidth*0.6;
     setTimeout(showRose, 400);
   }
 

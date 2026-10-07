@@ -58,7 +58,7 @@
   .pill{position:fixed;left:50%;transform:translate(-50%,8px);z-index:120;background:rgba(0,0,0,.62);color:#fff;font-size:12px;font-weight:600;line-height:1.5;border-radius:16px;padding:8px 14px;
         text-align:center;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .35s,transform .35s}
   .pill.show{opacity:1;transform:translate(-50%,0)}
-  #tip{top:calc(66px + env(safe-area-inset-top,0px))}
+  #tip{top:calc(66px + env(safe-area-inset-top,0px));max-width:70vw}
   #arrToast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 
   /* 撮影 */
@@ -68,7 +68,10 @@
   #photoView{position:fixed;inset:0;z-index:310;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px;background:rgba(40,20,40,.86)}
   #photoView.on{display:flex}
   #photoView img{max-width:88vw;max-height:66vh;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.5);background:#fff}
-  #photoView p{margin:0;color:#fff;font-size:12px;text-align:center;line-height:1.7}
+  #photoView img{-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto;pointer-events:auto}   /* 長おしで「写真に追加」を出すため */
+  #photoView p{margin:0;color:#fff;font-size:12px;text-align:center;line-height:1.7;max-width:88vw}
+  #photoView p b{color:#ffe082}
+  #photoView .msg{color:#ffd54f;font-weight:700}
   #photoView .row{display:flex;gap:10px}
 </style>
 </head>
@@ -90,8 +93,9 @@
 <div id="flash"></div>
 <div id="photoView">
   <img id="photoImg" alt="">
-  <p>📤「ほぞん・シェア」→「画像を保存」をえらぶと、写真アプリに入るよ</p>
-  <div class="row"><button class="nav-btn" id="photoSave">📤 ほぞん・シェア</button><button class="ghost-btn" id="photoClose">🔁 もう一度とる</button></div>
+  <p id="photoHow"></p>
+  <p class="msg" id="photoMsg"></p>
+  <div class="row"><button class="nav-btn" id="photoSave">📤 メニューをひらく</button><button class="ghost-btn" id="photoClose">🔁 もう一度とる</button></div>
 </div>
 
 <nav id="bottombar">
@@ -222,20 +226,27 @@
       });
     }
     $('shotBtn').addEventListener('click', async () => {
+      FairySound.shutter();                                // カシャッ
       flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
       if(navigator.vibrate) try{ navigator.vibrate(30); }catch(e){}
       const blob = await capture(); if(!blob) return;
       lastBlob = blob; if(lastUrl) URL.revokeObjectURL(lastUrl);
-      lastUrl = URL.createObjectURL(blob); pimg.src = lastUrl; pv.classList.add('on');
+      lastUrl = URL.createObjectURL(blob); pimg.src = lastUrl; $('photoMsg').textContent = ''; pv.classList.add('on');
     });
-    $('photoClose').addEventListener('click', () => pv.classList.remove('on'));
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    $('photoHow').innerHTML = isIOS
+      ? '📷 <b>いちばんかんたん：</b>上の写真を <b>ゆびで長くおして</b> →「<b>写真に追加</b>」をえらぶと、写真アプリに入るよ<br>📤 ボタンのときは、メニューの中の「<b>画像を保存</b>」をえらんでね（「ファイルに保存」だと、写真アプリには入らないよ）'
+      : '📷 <b>いちばんかんたん：</b>上の写真を <b>ゆびで長くおして</b> →「<b>画像を保存</b>」などをえらんでね<br>📤 ボタンのときは、メニューの中の「ギャラリー」「フォト」「画像を保存」をえらんでね';
+    $('photoClose').addEventListener('click', () => { pv.classList.remove('on'); $('photoMsg').textContent = ''; });
     $('photoSave').addEventListener('click', async () => {
       if(!lastBlob) return;
       const file = new File([lastBlob], 'fairy-photo.jpg', { type:'image/jpeg' });
       if(navigator.canShare && navigator.canShare({ files:[file] })){
         try{ await navigator.share({ files:[file] }); return; }catch(e){ if(e && e.name === 'AbortError') return; }
       }
+      // 共有メニューが使えない時：ダウンロードになる（＝「ファイル」アプリに入る。写真アプリには入らない）
       const a = document.createElement('a'); a.href = lastUrl; a.download = 'fairy-photo.jpg'; document.body.appendChild(a); a.click(); a.remove();
+      $('photoMsg').textContent = '⚠️ この画面では「ダウンロード（ファイルアプリ）」になるよ。写真アプリに入れるには、上の写真を長くおしてね';
     });
   })();
 

@@ -25,7 +25,7 @@
     background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.5); border-radius:999px; padding:7px 12px; }
 
   .hint { position:fixed; left:50%; transform:translateX(-50%); top:calc(74px + env(safe-area-inset-top,0px)); z-index:40;
-    max-width:86vw; text-align:center; background:rgba(0,0,0,.5); border-radius:16px; padding:8px 14px; font-size:13px; font-weight:600;
+    max-width:68vw; text-align:center; background:rgba(0,0,0,.5); border-radius:16px; padding:8px 14px; font-size:13px; font-weight:600;
     line-height:1.45; pointer-events:none; transition:opacity .3s; }
   .hint.hide { opacity:0; }
 
@@ -121,7 +121,7 @@
 <div class="start-veil" id="startVeil">
   <div class="big" id="vIcon">🔍</div>
   <h1 id="vTitle">妖精をさがせ！</h1>
-  <p id="vText">「はじめる」を押してカメラを起動します。<br/>スマホを上下・左右・うしろまで<b>ゆっくり動かして</b>、かくれている妖精を見つけてね。</p>
+  <p id="vText">「はじめる」を押してカメラを起動します。<br/>スマホを上下・左右・うしろまで<b>ゆっくり動かして</b>、かくれている妖精を見つけてね。<br/><span style="font-size:11px;opacity:.8">🔊 音が出るよ（マナーモードだと、鳴らないことがあるよ）</span></p>
   <button id="startBtn">📷 はじめる</button>
   <a href="webar_fairy_world.html">← ホームにもどる</a>
 </div>
@@ -253,6 +253,7 @@
     }
   });
   document.addEventListener('pointerup', e => {
+    if(e.target && e.target.closest && e.target.closest('#sndToggle')){ drag.active = false; return; }
     const wasTap = drag.active && drag.moved < 10;
     drag.active = false;
     if(wasTap) onTap(e.clientX, e.clientY);
@@ -343,6 +344,8 @@
       vis = (tx > -z.imgW*0.3 && tx < W + z.imgW*0.3 && ty > -z.imgH*0.3 && ty < H + z.imgH*0.3);
     }
     S.visible = vis;
+    if(vis && !S.wasVis && !S.found && now - (S.lastPing || 0) > 3000){ S.lastPing = now; FairySound.sparkle(); }   // 見えた！
+    S.wasVis = vis;
     S.angle = Math.acos(clamp(cz, -1, 1)) * 180 / Math.PI;    // 妖精まで あと何度か
 
     let x, y, sc = 1;
@@ -449,6 +452,8 @@
     ring.classList.remove('on'); arrow.classList.remove('on');
     hint.classList.add('hide'); pill.classList.remove('on');
     FairyStore.mark(F);
+    FairySound.register();                                                              // ずかんにとうろく！のキラキラ音
+    setTimeout(() => FairySound.say('voice_' + F.id + '_thanks', F.thanks[0], F.id), 900);  // 「見つけてくれてありがとう」
     if(navigator.vibrate) try{ navigator.vibrate([60, 40, 90]); }catch(e){}
 
     // キラキラ大爆発
@@ -482,6 +487,7 @@
     if(S.jumping) return;
     S.jumping = true;
     const T = F.frames.jumpMs || 2800;
+    FairySound.jump(); setTimeout(() => FairySound.land(), T * 0.72);
     const z = S._z || sizes();
     const Hh = Math.min(z.H * 0.12, 120), Sx = 1.18;
     if(jumpEl.animate){
@@ -564,6 +570,7 @@
   });
 
   startBtn.addEventListener('click', async () => {
+    FairySound.unlock();                       // iPhone は、タップの時に音を有効にする（いちばん先に）
     startBtn.disabled = true; startBtn.textContent = '準備中…';
     // iOS は「ユーザーのタップの直後」に許可を聞く必要がある。先に向きセンサー、つぎにカメラ。
     const motionOK = await askMotion();

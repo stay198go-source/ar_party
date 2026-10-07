@@ -107,6 +107,148 @@ window.FairyStore = (function(){
 })();
 
 /* ==========================================================================
+ *  FairySound ― 効果音（キラキラ・ジャンプ・シャッター）と、妖精の声
+ *   ・効果音は、その場でつくる（音のファイルはいらない）
+ *   ・声は、voice_○○.mp3 を同じフォルダに置けばそれを再生。無ければ、スマホの読み上げ（高い声）
+ *       voice_rose_hello.mp3 / voice_ria_thanks.mp3 / voice_tink_thanks.mp3 / voice_lily_thanks.mp3
+ *   ・右上の 🔊 / 🔇 ボタンで、音をON/OFF（OFFにしたことは覚えておく）
+ * ========================================================================= */
+window.FairySound = (function(){
+  const KEY = 'ar_party_sound';
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let ctx = null, master = null, enabled = true, unlocked = false, waiting = [];
+  try{ enabled = localStorage.getItem(KEY) !== '0'; }catch(e){}
+  try{ if(navigator.audioSession) navigator.audioSession.type = 'playback'; }catch(e){}   // iPhone のマナーモードでも鳴らす（対応している時だけ）
+
+  function ensure(){
+    if(!AC) return null;
+    if(!ctx){ ctx = new AC(); master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination); }
+    if(ctx.state === 'suspended'){ try{ ctx.resume(); }catch(e){} }
+    return ctx;
+  }
+  function flush(){
+    const now = Date.now(), q = waiting; waiting = [];
+    q.forEach(it => { if(now - it.t < 6000){ try{ it.fn(); }catch(e){} } });
+  }
+  /* ユーザーがタップした時に呼ぶ（iPhone は、これをしないと音が出ない） */
+  function unlock(){
+    const c = ensure(); if(!c) return;
+    try{ const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); }catch(e){}
+    if(!unlocked && 'speechSynthesis' in window){
+      try{ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
+    }
+    unlocked = true;
+    if(c.state === 'running') flush(); else { try{ c.resume().then(flush).catch(()=>{}); }catch(e){} }
+  }
+  ['touchend','pointerup','click','keydown'].forEach(ev =>
+    window.addEventListener(ev, () => { if(!ctx || ctx.state !== 'running' || !unlocked) unlock(); }, {passive:true, capture:true}));
+
+  function play(fn){
+    if(!enabled) return;
+    if(!ensure()) return;
+    if(ctx.state === 'running') fn(); else waiting.push({fn, t:Date.now()});
+  }
+  function tone(freq, t0, dur, o){
+    o = o || {};
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(freq, t0);
+    if(o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t0 + dur);
+    const v = (o.vol == null ? 0.2 : o.vol);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(v, t0 + (o.atk || 0.008));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(master); osc.start(t0); osc.stop(t0 + dur + 0.05);
+  }
+  /* ベルのような、きれいな音 */
+  function bell(freq, t0, dur, vol){
+    vol = vol || 0.15;
+    tone(freq, t0, dur, {type:'sine', vol:vol});
+    tone(freq*2, t0, dur*0.7, {type:'triangle', vol:vol*0.35});
+    tone(freq*3.01, t0, dur*0.4, {type:'sine', vol:vol*0.18});
+  }
+  function click(t, vol){
+    const len = Math.floor(ctx.sampleRate * 0.05), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3);
+    const s = ctx.createBufferSource(); s.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2800; f.Q.value = 0.8;
+    const g = ctx.createGain(); g.gain.value = vol * 0.6;
+    s.connect(f); f.connect(g); g.connect(master); s.start(t);
+  }
+
+  const FX = {
+    /* ちいさなキラッ */
+    sparkle(){ play(()=>{ const t = ctx.currentTime, n = [2093,2637,3136,3951], a = n[Math.floor(Math.random()*n.length)];
+      bell(a, t, 0.35, 0.10); bell(a*1.25, t+0.07, 0.3, 0.07); }); },
+    /* ずかんにとうろく！ のキラキラ音（のぼっていくベル ＋ ふわっとした和音） */
+    register(){ play(()=>{ const t = ctx.currentTime;
+      [784,988,1175,1319,1568,1976,2349].forEach((f,i) => bell(f, t + i*0.085, 0.9, 0.15));
+      [1568,1976,2349,3136].forEach(f => bell(f, t + 0.7, 1.4, 0.09)); }); },
+    /* ぴょん！ */
+    jump(){ play(()=>{ const t = ctx.currentTime;
+      tone(320, t, 0.22, {type:'sine', to:880, vol:0.20}); bell(1568, t+0.18, 0.4, 0.10); bell(2093, t+0.26, 0.45, 0.08); }); },
+    /* ふわっと着地 */
+    land(){ play(()=>{ const t = ctx.currentTime;
+      tone(520, t, 0.14, {type:'sine', to:260, vol:0.15}); bell(1319, t+0.05, 0.35, 0.07); }); },
+    /* カシャッ */
+    shutter(){ play(()=>{ const t = ctx.currentTime; click(t, 0.9); click(t + 0.075, 0.7); }); }
+  };
+
+  /* ---------- 声 ---------- */
+  const VOICE = { rose:{pitch:1.85, rate:1.05}, ria:{pitch:1.6, rate:0.98}, tink:{pitch:2.0, rate:1.12}, lily:{pitch:1.35, rate:0.95} };
+  const cache = {};
+  function fileExists(url){
+    if(!(url in cache)) cache[url] = (typeof fetch === 'function')
+      ? fetch(url, {method:'HEAD', cache:'no-store'}).then(r => r.ok).catch(()=>false) : Promise.resolve(false);
+    return cache[url];
+  }
+  function clean(t){ return String(t).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}♪♡♥]/gu, '').replace(/[〜~]/g, 'ー').trim(); }
+  function pickVoice(){
+    try{ const ja = (speechSynthesis.getVoices() || []).filter(v => /^ja/i.test(v.lang));
+      return ja.find(v => /kyoko|o-ren|haruka|nanami|ayumi|google/i.test(v.name)) || ja[0] || null; }catch(e){ return null; }
+  }
+  function speak(text, fid){
+    if(!('speechSynthesis' in window)) return;
+    try{
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(clean(text)); u.lang = 'ja-JP';
+      const v = pickVoice(); if(v) u.voice = v;
+      const p = VOICE[fid] || {pitch:1.8, rate:1.05}; u.pitch = p.pitch; u.rate = p.rate; u.volume = 1;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  /* key: 'voice_rose_hello' など。mp3 があればそれを、なければ text を読み上げる */
+  function say(key, text, fid){
+    if(!enabled) return;
+    fileExists(key + '.mp3').then(ok => {
+      if(!enabled) return;
+      if(ok){ const a = new Audio(key + '.mp3'); a.play().catch(()=>speak(text, fid)); } else speak(text, fid);
+    });
+  }
+
+  /* ---------- 右上の 🔊 / 🔇 ボタン ---------- */
+  function setEnabled(v){
+    enabled = !!v;
+    try{ localStorage.setItem(KEY, enabled ? '1' : '0'); }catch(e){}
+    const b = document.getElementById('sndToggle'); if(b){ b.textContent = enabled ? '🔊' : '🔇'; b.setAttribute('aria-pressed', enabled ? 'true' : 'false'); }
+    if(!enabled){ try{ speechSynthesis.cancel(); }catch(e){} }
+  }
+  function mountToggle(){
+    if(document.getElementById('sndToggle') || !document.body) return;
+    const b = document.createElement('button');
+    b.id = 'sndToggle'; b.type = 'button'; b.setAttribute('aria-label', 'おとのON・OFF');
+    b.style.cssText = 'position:fixed;right:12px;top:calc(env(safe-area-inset-top,0px) + 64px);width:38px;height:38px;border-radius:50%;'
+      + 'border:1.5px solid rgba(255,255,255,.85);background:rgba(0,0,0,.42);color:#fff;font-size:18px;line-height:1;padding:0;cursor:pointer;z-index:150;'
+      + '-webkit-tap-highlight-color:transparent;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+    b.textContent = enabled ? '🔊' : '🔇';
+    b.addEventListener('click', e => { e.stopPropagation(); setEnabled(!enabled); if(enabled){ unlock(); FX.sparkle(); } });
+    document.body.appendChild(b);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountToggle); else mountToggle();
+
+  return Object.assign({ unlock, say, setEnabled, isOn: () => enabled }, FX);
+})();
+
+/* ==========================================================================
  *  FairyFX  ― キラキラ（ステージ・AR 共通）
  * ========================================================================= */
 window.FairyFX = (function(){
@@ -540,6 +682,7 @@ window.FairySequencer = (function () {
     card.dataset.state = 'jumping';
     card.classList.add('jumping');
     card.style.zIndex = 70;
+    FairySound.jump(); setTimeout(()=>FairySound.land(), (f.frames.jumpMs || 2800) * 0.72);
     const img  = card.querySelector('.fairy-img');
     const jumpEl = card.querySelector('.fairy-jump');
     const T = f.frames.jumpMs || 2800;
