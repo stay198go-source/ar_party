@@ -17,7 +17,7 @@
  */
 window.FAIRIES = [
   /* ---------- 1. バラの妖精 ローズ ---------- */
-  { id:'rose', emblem:'emblem_rose.png', name:'ローズ', role:'🌹 メイン妖精', subtitle:'バラの香りをお届け',
+  { id:'rose', emblem:'emblem_rose.webp', name:'ローズ', role:'🌹 メイン妖精', subtitle:'バラの香りをお届け',
     color:'#ff4081', accent:'#d81b60',
     sparks:['#ff80ab','#ffd54f','#ffffff','#ffb3d1','#ff4081'], glyphs:['✦','✧','♡','★'],
     img:{ aspect:1.159, bodyRatio:0.89, bodyW:0.654, cx:0.49 },
@@ -31,7 +31,7 @@ window.FAIRIES = [
     entry:'fadeBounce', delay:0, bleCode:'R', area:'ローズガーデン', status:'ready' },
 
   /* ---------- 2. 雲の妖精 リア ---------- */
-  { id:'ria', emblem:'emblem_ria.png', name:'リア', role:'☁️ おともだち', subtitle:'雲の上からやってきた',
+  { id:'ria', emblem:'emblem_ria.webp', name:'リア', role:'☁️ おともだち', subtitle:'雲の上からやってきた',
     color:'#4fc3f7', accent:'#0277bd',
     sparks:['#81d4fa','#b3e5fc','#ffffff','#e1bee7','#ffd54f'], glyphs:['✦','✧','★','☆'],
     img:{ aspect:1.568, bodyRatio:0.961, bodyW:0.453, cx:0.563 },
@@ -51,7 +51,7 @@ window.FAIRIES = [
     hint:'☁️ 空のほうから、ふわふわの気配がするよ…', },
 
   /* ---------- 3. 光の妖精 ティンク ---------- */
-  { id:'tink', emblem:'emblem_tink.png', name:'ティンク', role:'✨ あたらしい仲間', subtitle:'キラキラの光をまとう',
+  { id:'tink', emblem:'emblem_tink.webp', name:'ティンク', role:'✨ あたらしい仲間', subtitle:'キラキラの光をまとう',
     color:'#ffd54f', accent:'#ff9800',
     sparks:['#ffe082','#fff59d','#ffffff','#ffcc80','#ffd54f'], glyphs:['✦','✧','★','✦'],
     img:{ aspect:0.93, bodyRatio:0.942, bodyW:0.687, cx:0.486 },
@@ -69,7 +69,7 @@ window.FAIRIES = [
     hint:'✨ キラキラ光るものを、さがしてみてね', },
 
   /* ---------- 4. 森の妖精 リリー ---------- */
-  { id:'lily', emblem:'emblem_lily.png', name:'リリー', role:'🍃 もう 1 人の仲間', subtitle:'そよ風にのって森から',
+  { id:'lily', emblem:'emblem_lily.webp', name:'リリー', role:'🍃 もう 1 人の仲間', subtitle:'そよ風にのって森から',
     color:'#aed581', accent:'#558b2f',
     sparks:['#c5e1a5','#aed581','#ffffff','#ffe082','#dcedc8'], glyphs:['✦','✧','❦','★'],
     img:{ aspect:0.805, bodyRatio:0.964, bodyW:0.928, cx:0.5 },
@@ -166,6 +166,16 @@ window.FairySound = (function(){
     tone(freq*2, t0, dur*0.7, {type:'triangle', vol:vol*0.35});
     tone(freq*3.01, t0, dur*0.4, {type:'sine', vol:vol*0.18});
   }
+  function noiseBurst(t, dur, freq, type, vol){
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur)), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 2);
+    const s = ctx.createBufferSource(); s.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = 0.9;
+    const g = ctx.createGain(); g.gain.value = vol;
+    s.connect(f); f.connect(g); g.connect(master); s.start(t);
+  }
+  function getShutter(){ try{ return localStorage.getItem('ar_party_shutter') || 'pico'; }catch(e){ return 'pico'; } }
+  function setShutter(v){ try{ localStorage.setItem('ar_party_shutter', v); }catch(e){} }
   function click(t, vol){
     const len = Math.floor(ctx.sampleRate * 0.05), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
     for(let i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3);
@@ -189,8 +199,27 @@ window.FairySound = (function(){
     /* ふわっと着地 */
     land(){ play(()=>{ const t = ctx.currentTime;
       tone(520, t, 0.14, {type:'sine', to:260, vol:0.15}); bell(1319, t+0.05, 0.35, 0.07); }); },
-    /* カシャッ */
-    shutter(){ play(()=>{ const t = ctx.currentTime; click(t, 0.9); click(t + 0.075, 0.7); }); }
+    /* シャッター音。style: 'pico' | 'camera' | 'pop' | 'chime' | 'sparkle'（なにも言わなければ、えらんである音）。shutter.mp3 / .m4a があればそれを優先 */
+    shutter(style){
+      if(!enabled) return;
+      findFile('shutter').then(url => {
+        if(url){ try{ new Audio(url).play().catch(()=>{}); }catch(e){} return; }
+        play(()=>{ const t = ctx.currentTime, st = style || getShutter();
+          if(st === 'camera'){            // 本物のカメラに近い「カ・シャッ」
+            noiseBurst(t, 0.012, 3500, 'highpass', 0.9); tone(190, t, 0.05, {type:'sine', to:90, vol:0.30});
+            noiseBurst(t + 0.085, 0.07, 4200, 'bandpass', 0.55); tone(2400, t + 0.085, 0.03, {type:'square', vol:0.04});
+          } else if(st === 'pop'){        // ポン！
+            tone(760, t, 0.10, {type:'sine', to:240, vol:0.30}); bell(1760, t + 0.04, 0.22, 0.06);
+          } else if(st === 'chime'){      // ポロン♪
+            bell(1319, t, 0.45, 0.16); bell(1760, t + 0.11, 0.6, 0.16);
+          } else if(st === 'sparkle'){    // キラッ
+            bell(2093, t, 0.35, 0.14); bell(3136, t + 0.06, 0.45, 0.12); bell(4186, t + 0.12, 0.5, 0.06);
+          } else {                        // 'pico' ピコッ（かわいい電子音）
+            tone(1568, t, 0.07, {type:'triangle', vol:0.20}); tone(2093, t + 0.075, 0.12, {type:'triangle', vol:0.20}); bell(3136, t + 0.09, 0.3, 0.05);
+          }
+        });
+      });
+    }
   };
 
   /* ---------- 声 ---------- */
@@ -216,12 +245,16 @@ window.FairySound = (function(){
       speechSynthesis.speak(u);
     }catch(e){}
   }
-  /* key: 'voice_rose_hello' など。mp3 があればそれを、なければ text を読み上げる */
+  /* key.mp3 → key.m4a の順にさがして、あれば そのファイルの場所を返す（なければ null） */
+  function findFile(key){
+    return fileExists(key + '.mp3').then(ok => ok ? key + '.mp3' : fileExists(key + '.m4a').then(ok2 => ok2 ? key + '.m4a' : null));
+  }
+  /* key: 'voice_rose_hello' など。mp3 / m4a があればそれを、なければ text を読み上げる */
   function say(key, text, fid){
     if(!enabled) return;
-    fileExists(key + '.mp3').then(ok => {
+    findFile(key).then(url => {
       if(!enabled) return;
-      if(ok){ const a = new Audio(key + '.mp3'); a.play().catch(()=>speak(text, fid)); } else speak(text, fid);
+      if(url){ const a = new Audio(url); a.play().catch(()=>speak(text, fid)); } else speak(text, fid);
     });
   }
 
@@ -245,7 +278,7 @@ window.FairySound = (function(){
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountToggle); else mountToggle();
 
-  return Object.assign({ unlock, say, setEnabled, isOn: () => enabled }, FX);
+  return Object.assign({ unlock, say, setEnabled, getShutter, setShutter, shutterStyles:['pico','camera','pop','chime','sparkle'], isOn: () => enabled }, FX);
 })();
 
 /* ==========================================================================
@@ -375,13 +408,14 @@ window.FairyFX = (function(){
 window.FairySequencer = (function () {
   const ENTRY_MS = { fadeBounce:1100, floatDown:1500, sparkleBurst:1300, windSweep:1300 };
   const rand = (a,b)=>a+Math.random()*(b-a);
-  const frameUrl = k => (!k || k.endsWith('.png')) ? k : (k + '.png');
+  const frameUrl = k => (!k || /\.(png|webp)$/.test(k)) ? k : (k + '.webp');
   const state = { stage:null, layer:null, speakers:[], talkIdx:0, talkTimer:null, resizeBound:false, mode:'grid' };
 
   function preload(f){
-    const names = new Set([f.frames.rest, f.frames.blink]);
-    (f.frames.jump||[]).forEach(p=>names.add(p[0]));
-    names.forEach(n=>{ const i = new Image(); i.src = frameUrl(n); });
+    const load = n => { const i = new Image(); i.src = frameUrl(n); };
+    [f.frames.rest, f.frames.blink].forEach(load);                       // まず、ふだんの2まい（立ち・まばたき）
+    const later = fn => setTimeout(() => { if(window.requestIdleCallback) requestIdleCallback(fn, {timeout:2000}); else fn(); }, 1500);
+    later(() => (f.frames.jump||[]).forEach(p => load(p[0])));           // ジャンプ用は、あとからゆっくり（さいしょの表示をはやくする）
   }
   function setFrame(img, name){ if(img) img.src = frameUrl(name); }
 

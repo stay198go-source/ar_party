@@ -51,6 +51,8 @@
   .entry.pop{animation:popIn 1.4s ease-out 1}
   @keyframes popIn{0%{transform:scale(.9)}35%{transform:scale(1.07);box-shadow:0 0 0 14px rgba(255,213,79,.5)}100%{transform:scale(1);box-shadow:0 8px 22px rgba(0,0,0,.08)}}
 
+  .regtoast{position:fixed;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translate(-50%,-14px);z-index:40;opacity:0;pointer-events:none;background:linear-gradient(135deg,#ffb74d,#ff4081);color:#fff;font-size:14px;font-weight:700;border-radius:999px;padding:10px 20px;box-shadow:0 6px 18px rgba(255,64,129,.4);transition:opacity .4s,transform .4s;white-space:nowrap}
+  .regtoast.show{opacity:1;transform:translate(-50%,0)}
   .ver{margin:18px 0 4px;text-align:center;font-size:10px;color:#b59aa8}
   .complete{margin:22px auto 0;max-width:420px;text-align:center;background:rgba(255,255,255,.85);border-radius:22px;padding:16px;font-size:13px;font-weight:700;color:#c2185b;border:2px dashed #ffb7c5}
   .complete .big{font-size:30px;line-height:1.2}
@@ -105,12 +107,13 @@
   <div class="bar"><div id="barFill"></div></div>
   <div class="grid" id="grid"></div>
   <div class="complete" id="complete" style="display:none"></div>
-  <div class="ver">ずかん ver.8（10/6）</div>
+  <div class="ver">ずかん ver.9（10/7）</div>
 </main>
 
 <nav class="bottom" id="bottomNav"></nav>
 
 <!-- 詳しいカード -->
+<div class="regtoast" id="regToast">📖 ずかんに とうろくしたよ！</div>
 <div class="veil" id="detail"><div class="sheet" id="detailSheet"></div></div>
 <!-- 登録のおいわい -->
 <div class="veil reveal" id="reveal"><div class="sheet" id="revealSheet"></div></div>
@@ -219,12 +222,12 @@
     const rv = $('reveal'), rs = $('revealSheet');
     rs.style.setProperty('--fc', f.color); rs.style.setProperty('--fa', f.accent);
     rs.innerHTML =
-      '<div class="tag">📖 ずかんに とうろくされたよ！</div>' +
+      '<div class="tag">✨ あたらしい妖精を 見つけたよ！</div>' +
       '<div class="big"><img src="' + f.emblem + '" alt="' + f.name + '"></div>' +
       '<h2>' + f.name + '</h2><div class="role">' + f.role + '</div>' +
       '<div class="say">' + (f.subtitle || '') + '</div>' +
-      '<button class="btn main" id="revealOk" style="margin-top:6px">✨ ずかんを見る</button>' +
-      '<div class="ver" style="margin:8px 0 0">ver.8</div>';
+      '<button class="btn main" id="revealOk" style="margin-top:6px">📖 ずかんにとうろく</button>' +
+      '<div class="ver" style="margin:8px 0 0">ver.9</div>';
     const rimg = new Image(); rimg.src = f.emblem;
     const ready = new Promise(res => {
       if(rimg.complete && rimg.naturalWidth){ res(); return; }
@@ -232,14 +235,15 @@
     });
     ready.then(() => setTimeout(() => {
       rv.classList.add('on');
-      FairySound.register();                               // ずかんにとうろく！のキラキラ音（ブラウザが許すとき）
+      FairySound.sparkle();                                // 見つけた！（ブラウザが音を許すとき）
       const burst = (n, p) => { const r = rs.querySelector('.big img').getBoundingClientRect(); FairyFX.burst(fx, r.left + r.width/2, r.top + r.height/2, n, fxo(f, p, 20)); };
       setTimeout(() => burst(40, 2.6), 350);
       setTimeout(() => burst(26, 2.0), 1100);
       setTimeout(() => burst(20, 1.6), 1900);
     }, 300));
     $('revealOk').addEventListener('click', () => {
-      FairySound.sparkle();                                // タップのあとなら、かならず鳴る
+      FairySound.register();                               // ずかんにとうろく！のキラキラ音（タップのあとなので、かならず鳴る）
+      const rt = $('regToast'); rt.classList.add('show'); setTimeout(() => rt.classList.remove('show'), 2600);
       rv.classList.remove('on');
       const card = grid.querySelector('[data-id="' + f.id + '"]');
       if(card){ card.scrollIntoView({behavior:'smooth', block:'center'}); card.classList.add('pop');

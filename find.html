@@ -108,13 +108,13 @@
   <a class="mini-home" href="webar_fairy_world.html">🏠 ホーム</a>
 </div>
 <div class="hint" id="hint"></div>
-<div class="toast" id="toast">📖 ずかんに とうろくしたよ！</div>
+<div class="toast" id="toast">🎉 見つけたよ！ ずかんに とうろくしよう</div>
 <div class="bubble" id="bubble"></div>
 
 <div class="mode-pill" id="modePill"><span id="modeText"></span><button id="sensorBtn" type="button">📡 向きセンサーをオンにする</button></div>
 
 <div class="bottom-bar">
-  <a class="btn" id="zukanBtn" href="zukan.html">📖 ずかんを見る</a>
+  <a class="btn" id="zukanBtn" href="zukan.html">📖 ずかんにとうろく</a>
   <a class="btn sub" id="homeBtn" href="webar_fairy_world.html">🏠 ホームへ戻る</a>
 </div>
 
@@ -167,8 +167,11 @@
   const fxo = p => ({ colors:F.sparks, glyphs:F.glyphs, size:17, power:p || 1, dur:1500 });
 
   // 画像の先読み
-  const frameUrl = n => (n.endsWith('.png') ? n : n + '.png');
-  [F.frames.rest, F.frames.blink].concat(F.frames.jump.map(p => p[0])).forEach(n => { const i = new Image(); i.src = frameUrl(n); });
+  const frameUrl = n => (/\.(png|webp)$/.test(n) ? n : n + '.webp');
+  const _load = n => { const i = new Image(); i.src = frameUrl(n); };
+  [F.frames.rest, F.frames.blink].forEach(_load);                         // まず、ふだんの2まい
+  setTimeout(() => { const go = () => F.frames.jump.forEach(p => _load(p[0]));             // ジャンプ用は、あとからゆっくり
+    if(window.requestIdleCallback) requestIdleCallback(go, {timeout:2000}); else go(); }, 1500);
   fimg.src = frameUrl(F.frames.rest);
 
   // ============================================================

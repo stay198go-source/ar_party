@@ -4,23 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WebAR Fairy World ― 妖精たちのファンタジーの旅</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="hub.css">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=M+PLUS+Rounded+1c:wght@400;500;700&family=Great+Vibes&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: { fairyPink:'#ffb7c5', fairyGold:'#f3e5ab', fairyGoldDeep:'#d4af37',
-                  fairyCream:'#fffbf5', fairyLavender:'#e6e6fa', fairyRose:'#ff9ebb', fairyMint:'#d1f8ef' },
-        fontFamily: { rounded:['"M PLUS Rounded 1c"','sans-serif'],
-                       fairy:['"Cinzel Decorative"','serif'],
-                       script:['"Great Vibes"','cursive'] }
-      }
-    }
-  }
-</script>
 <style>
   body{font-family:'M PLUS Rounded 1c',sans-serif;
        background:linear-gradient(135deg,#fff0f5 0%,#fffbf5 50%,#f0f8ff 100%);
@@ -131,7 +116,7 @@
     media.className = 'hub-media';
     const img = document.createElement('img');
     img.alt = isFound ? f.name : '？？？';
-    img.src = (f.frames.rest.endsWith('.png') ? f.frames.rest : f.frames.rest + '.png');
+    img.src = (/\.(png|webp)$/.test(f.frames.rest) ? f.frames.rest : f.frames.rest + '.webp');
     img.draggable = false;
     media.appendChild(img);
     if(!isFound){
@@ -211,29 +196,39 @@
     if(confirm('みつけた妖精の記録を消して、はじめからやりなおしますか？')){ FairyStore.reset(); location.href = 'webar_fairy_world.html'; }
   });
 
-  /* ===== Three.js 背景 ===== */
-  function initThreeBg(){
-    const c = document.getElementById('three-bg');
-    if (!c) return;
-    try{
-      const r = new THREE.WebGLRenderer({ alpha:true });
-      r.setSize(window.innerWidth, window.innerHeight);
-      c.appendChild(r.domElement);
-      const scene = new THREE.Scene();
-      const cam = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-      cam.position.z = 5;
-      const g = new THREE.BufferGeometry();
-      const v = []; for (let i=0;i<300;i++) v.push((Math.random()-.5)*20, (Math.random()-.5)*20, (Math.random()-.5)*20);
-      g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-      const m = new THREE.PointsMaterial({ color:0xffd700, size:0.06, transparent:true, opacity:0.7 });
-      const ps = new THREE.Points(g, m);
-      scene.add(ps);
-      (function tick(){ ps.rotation.y += 0.0008; r.render(scene, cam); requestAnimationFrame(tick); })();
-    }catch(e){}
+  /* ===== 背景：金色の点がゆっくり回る（かるい 2D 版。3D の部品は使わない） ===== */
+  function initBg(){
+    const box = document.getElementById('three-bg'); if(!box) return;
+    const cv = document.createElement('canvas'); cv.style.cssText = 'width:100%;height:100%;display:block';
+    box.appendChild(cv);
+    const ctx = cv.getContext('2d'); if(!ctx) return;
+    let W = 0, H = 0, ang = 0, last = 0;
+    const N = 300, pts = [];
+    for(let i=0;i<N;i++) pts.push([(Math.random()-.5)*20, (Math.random()-.5)*20, (Math.random()-.5)*20]);
+    function resize(){ W = cv.width = Math.max(1, Math.round(window.innerWidth/2)); H = cv.height = Math.max(1, Math.round(window.innerHeight/2)); }   // 半分の解像度でかるく
+    resize(); window.addEventListener('resize', resize);
+    function draw(){
+      ctx.clearRect(0, 0, W, H);
+      const f = (H/2) / Math.tan(37.5*Math.PI/180), c = Math.cos(ang), sn = Math.sin(ang);
+      ctx.fillStyle = 'rgba(255,215,0,.7)';
+      for(let i=0;i<N;i++){
+        const p = pts[i], x = p[0]*c + p[2]*sn, z = -p[0]*sn + p[2]*c, d = 5 - z;
+        if(d < 0.1) continue;
+        const sx = W/2 + f * x / d, sy = H/2 - f * p[1] / d, r = Math.max(0.6, 0.03 * f / d);
+        if(sx < -4 || sx > W+4 || sy < -4 || sy > H+4) continue;
+        ctx.fillRect(sx - r, sy - r, r*2, r*2);
+      }
+    }
+    draw();
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;   // 動きをへらす設定のときは止める
+    (function tick(t){
+      requestAnimationFrame(tick);
+      if(document.hidden || t - last < 50) return;      // 見えていない時は止める／1秒に約20回だけ
+      last = t; ang += 0.0008 * 3; draw();
+    })(0);
   }
-  window.addEventListener('DOMContentLoaded', initThreeBg);
+  window.addEventListener('DOMContentLoaded', initBg);
 </script>
 
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>

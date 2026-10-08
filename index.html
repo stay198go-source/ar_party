@@ -99,13 +99,13 @@
   <div class="label">📷 ローズの目印にカメラを向けてね</div>
 </div>
 
-<div class="rose-box" id="roseBox"><div class="rose-float"><img id="roseImg" src="rose_1.png" alt="ローズ" draggable="false" /></div></div>
+<div class="rose-box" id="roseBox"><div class="rose-float"><img id="roseImg" src="rose_1.webp" alt="ローズ" draggable="false" /></div></div>
 
 <div class="bubble" id="bubble"></div>
 
 <div class="bottom-bar">
   <div class="hint" id="hint">💡 ローズをタップすると跳ねるよ 🌹</div>
-  <a class="home-btn" id="zukanBtn" href="zukan.html?new=rose">📖 ずかんを見る</a>
+  <a class="home-btn" id="zukanBtn" href="zukan.html?new=rose">📖 ずかんにとうろく</a>
   <a class="home-btn sub" id="homeBtn" href="webar_fairy_world.html?new=rose">🏠 ホームへ戻る</a>
 </div>
 
@@ -164,9 +164,11 @@
   const fx   = FairyFX.createLayer(document.body, true);
 
   // 画像を先に読み込んで、切り替えでチラつかないようにする
-  const frameUrl = n => n + '.png';
-  [ROSE.frames.rest, ROSE.frames.blink].concat(ROSE.frames.jump.map(p => p[0]))
-    .forEach(n => { const i = new Image(); i.src = frameUrl(n); });
+  const frameUrl = n => n + '.webp';
+  const _load = n => { const i = new Image(); i.src = frameUrl(n); };
+  [ROSE.frames.rest, ROSE.frames.blink].forEach(_load);                  // まず、ふだんの2まい
+  setTimeout(() => { const go = () => ROSE.frames.jump.forEach(p => _load(p[0]));          // ジャンプ用は、あとからゆっくり
+    if(window.requestIdleCallback) requestIdleCallback(go, {timeout:2000}); else go(); }, 1500);
 
   const S = {
     cur: { x:0, y:0, h:0 }, seen:false, shown:false,

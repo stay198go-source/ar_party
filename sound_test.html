@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔊 おとの聞きくらべ</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:18px 16px 40px;font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic Pro",sans-serif;color:#4a3b32;
+       background:linear-gradient(160deg,#fff4f7,#eef0ff);-webkit-tap-highlight-color:transparent}
+  h1{font-size:19px;margin:6px 0 4px;color:#c2185b}
+  p.lead{font-size:12.5px;line-height:1.7;margin:0 0 14px;color:#7a4a5e}
+  h2{font-size:14px;margin:22px 0 8px;color:#c2185b}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  button{font-family:inherit;border:none;cursor:pointer}
+  .snd{background:#fff;border:2px solid #ffb7c5;border-radius:16px;padding:14px 8px;font-size:14px;font-weight:700;color:#c2185b;line-height:1.4}
+  .snd small{display:block;font-size:11px;font-weight:500;color:#8a7a85;margin-top:3px}
+  .snd.sel{background:linear-gradient(135deg,#ff8fbb,#ff4081);color:#fff;border-color:#ff4081}
+  .snd.sel small{color:#ffe3ec}
+  .note{font-size:12px;color:#7a4a5e;line-height:1.7;margin-top:10px;background:rgba(255,255,255,.7);border-radius:12px;padding:10px 12px}
+  .voice{display:flex;gap:8px;align-items:center;margin:8px 0}
+  .voice button{flex:1;background:#fff;border:2px solid #b3e5fc;border-radius:14px;padding:11px 8px;font-size:13px;font-weight:700;color:#0277bd}
+  .row{display:flex;align-items:center;gap:8px;font-size:12px;margin:4px 0}
+  .row input{flex:1}
+  .status{font-size:12px;color:#c2185b;font-weight:700;margin-top:8px;min-height:1.4em}
+</style>
+</head>
+<body>
+<h1>🔊 おとの聞きくらべ</h1>
+<p class="lead">ボタンをおすと、音が鳴るよ。気に入った音を「これにする」でえらんでね。（えらんだ音は、このスマホだけに保存されるよ。みんなの分は、あとで私に教えてね）<br>📱 iPhoneは、<b>マナーモード（横のスイッチ）をOFF</b>にして、音量を上げてね。</p>
+
+<h2>📸 シャッター音（5しゅるい）</h2>
+<div class="grid" id="shutterGrid"></div>
+<div class="status" id="shutterStatus"></div>
+
+<h2>✨ ほかの音</h2>
+<div class="grid">
+  <button class="snd" data-fx="register">ずかんにとうろく<small>キラキラ のぼっていく音</small></button>
+  <button class="snd" data-fx="jump">ジャンプ<small>ぴょん！</small></button>
+  <button class="snd" data-fx="land">ちゃくち<small>ふわっ</small></button>
+  <button class="snd" data-fx="sparkle">ちいさなキラッ<small>妖精が見えた時</small></button>
+</div>
+
+<h2>🗣️ 妖精の声（スマホの読み上げ）</h2>
+<div class="voice"><button data-v="rose">🌹 ローズ<br>はじめまして</button><button data-v="ria">☁️ リア<br>ありがとう</button></div>
+<div class="voice"><button data-v="tink">✨ ティンク<br>ありがとう</button><button data-v="lily">🍃 リリー<br>ありがとう</button></div>
+<div class="note">声は、スマホに入っている読み上げの声を高くしたものです。もっとかわいくしたいときは、<b>本物の声のファイル</b>を置くと、そちらが使われます。<br>
+<b>voice_rose_hello.mp3</b>（ローズ「はじめまして」）／ <b>voice_ria_thanks.mp3</b> ／ <b>voice_tink_thanks.mp3</b> ／ <b>voice_lily_thanks.mp3</b><br>
+シャッター音も <b>shutter.mp3</b> を置くと、それが使われます。（.m4a でもOK）</div>
+<div class="status" id="fileStatus"></div>
+
+<script src="fairies.js"></script>
+<script>
+  const NAMES = {
+    pico:   ['ピコッ', 'かわいい電子音（いまの標準）'],
+    camera: ['カシャッ', '本物のカメラに近い音'],
+    pop:    ['ポン！', 'シャボン玉みたいな音'],
+    chime:  ['ポロン♪', 'やさしいベルの音'],
+    sparkle:['キラッ', '妖精っぽい キラキラ音']
+  };
+  const grid = document.getElementById('shutterGrid'), st = document.getElementById('shutterStatus');
+  function render(){
+    const cur = FairySound.getShutter(); grid.innerHTML = '';
+    FairySound.shutterStyles.forEach(k => {
+      const b = document.createElement('button'); b.className = 'snd' + (k === cur ? ' sel' : '');
+      b.innerHTML = NAMES[k][0] + '<small>' + NAMES[k][1] + (k === cur ? '　✓えらんでる' : '') + '</small>';
+      b.addEventListener('click', () => { FairySound.unlock(); FairySound.shutter(k); });
+      b.addEventListener('dblclick', () => {});
+      const pick = document.createElement('button'); pick.className = 'snd'; pick.style.cssText = 'padding:8px;font-size:12px;background:#fff7e6;border-color:#ffd54f;color:#b26a00';
+      pick.textContent = 'これにする';
+      pick.addEventListener('click', () => { FairySound.setShutter(k); st.textContent = '「' + NAMES[k][0] + '」をえらんだよ（シャッターはこの音になるよ）'; render(); FairySound.shutter(k); });
+      const cell = document.createElement('div'); cell.appendChild(b); cell.appendChild(pick);
+      pick.style.marginTop = '6px'; pick.style.width = '100%'; b.style.width = '100%';
+      grid.appendChild(cell);
+    });
+  }
+  render();
+  document.querySelectorAll('[data-fx]').forEach(b => b.addEventListener('click', () => { FairySound.unlock(); FairySound[b.dataset.fx](); }));
+  const LINES = { rose:['voice_rose_hello','はじめまして！ローズよ。よろしくね！'], ria:['voice_ria_thanks','見つけてくれて、ありがとう！リアだよ。'],
+                  tink:['voice_tink_thanks','わぁ、見つけてくれてありがとう！ティンクだよ。'], lily:['voice_lily_thanks','見つけてくれてありがとう。リリーです。'] };
+  document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { FairySound.unlock(); const l = LINES[b.dataset.v]; FairySound.say(l[0], l[1], b.dataset.v); }));
+
+  // 声のファイルが置いてあるか、しらべる
+  const keys = ['voice_rose_hello','voice_ria_thanks','voice_tink_thanks','voice_lily_thanks','shutter'];
+  const head = u => (typeof fetch === 'function') ? fetch(u, {method:'HEAD', cache:'no-store'}).then(r => r.ok).catch(() => false) : Promise.resolve(false);
+  Promise.all(keys.map(k => head(k + '.mp3')
+      .then(ok => ok ? true : head(k + '.m4a'))))
+    .then(r => { const have = keys.filter((k, i) => r[i]);
+      document.getElementById('fileStatus').textContent = have.length ? '✅ 見つかった音のファイル： ' + have.join(' / ') : 'まだ、音のファイルは置かれていないよ（スマホの読み上げの声と、つくった効果音を使うよ）'; });
+</script>
+</body>
+</html>
