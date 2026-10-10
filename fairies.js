@@ -131,7 +131,8 @@ window.FairySound = (function(){
     q.forEach(it => { if(now - it.t < 6000){ try{ it.fn(); }catch(e){} } });
   }
   /* ユーザーがタップした時に呼ぶ（iPhone は、これをしないと音が出ない） */
-  function unlock(){
+  function unlock(){ try{ unlockInner(); }catch(e){} }
+  function unlockInner(){
     const c = ensure(); if(!c) return;
     try{ const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); }catch(e){}
     if(!unlocked && 'speechSynthesis' in window){
@@ -144,9 +145,11 @@ window.FairySound = (function(){
     window.addEventListener(ev, () => { if(!ctx || ctx.state !== 'running' || !unlocked) unlock(); }, {passive:true, capture:true}));
 
   function play(fn){
-    if(!enabled) return;
-    if(!ensure()) return;
-    if(ctx.state === 'running') fn(); else waiting.push({fn, t:Date.now()});
+    try{
+      if(!enabled) return;
+      if(!ensure()) return;
+      if(ctx.state === 'running') fn(); else waiting.push({fn, t:Date.now()});
+    }catch(e){}                                  // 音で失敗しても、ほかの動きは止めない
   }
   function tone(freq, t0, dur, o){
     o = o || {};
@@ -174,7 +177,7 @@ window.FairySound = (function(){
     const g = ctx.createGain(); g.gain.value = vol;
     s.connect(f); f.connect(g); g.connect(master); s.start(t);
   }
-  function getShutter(){ try{ return localStorage.getItem('ar_party_shutter') || 'pico'; }catch(e){ return 'pico'; } }
+  function getShutter(){ try{ return localStorage.getItem('ar_party_shutter') || 'sparkle'; }catch(e){ return 'sparkle'; } }   // 標準は「キラッ」
   function setShutter(v){ try{ localStorage.setItem('ar_party_shutter', v); }catch(e){} }
   function click(t, vol){
     const len = Math.floor(ctx.sampleRate * 0.05), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
@@ -202,7 +205,7 @@ window.FairySound = (function(){
     /* シャッター音。style: 'pico' | 'camera' | 'pop' | 'chime' | 'sparkle'（なにも言わなければ、えらんである音）。shutter.mp3 / .m4a があればそれを優先 */
     shutter(style){
       if(!enabled) return;
-      findFile('shutter').then(url => {
+      findFile('shutter').catch(()=>null).then(url => {
         if(url){ try{ new Audio(url).play().catch(()=>{}); }catch(e){} return; }
         play(()=>{ const t = ctx.currentTime, st = style || getShutter();
           if(st === 'camera'){            // 本物のカメラに近い「カ・シャッ」
@@ -255,7 +258,7 @@ window.FairySound = (function(){
     findFile(key).then(url => {
       if(!enabled) return;
       if(url){ const a = new Audio(url); a.play().catch(()=>speak(text, fid)); } else speak(text, fid);
-    });
+    }).catch(()=>{});
   }
 
   /* ---------- 右上の 🔊 / 🔇 ボタン ---------- */
