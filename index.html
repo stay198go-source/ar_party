@@ -160,6 +160,7 @@
   const img       = document.getElementById('roseImg');
 
   const ROSE = FAIRIES.find(f => f.id === 'rose');
+  FairySound.preloadVoice('voice_rose_hello');                       // 声のファイルを、先に読みこんでおく
   const META = ROSE.img;                 // aspect 1.159 / bodyRatio 0.89 ...
   const fx   = FairyFX.createLayer(document.body, true);
 

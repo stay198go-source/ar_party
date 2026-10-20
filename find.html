@@ -163,6 +163,7 @@
   if(F.emblem){ const _e = new Image(); _e.src = F.emblem; }
 
   FairyFX.injectStyle();
+  FairySound.preloadVoice('voice_' + F.id + '_thanks');             // 声のファイルを、先に読みこんでおく
   const fx = FairyFX.createLayer(document.body, true);
   const fxo = p => ({ colors:F.sparks, glyphs:F.glyphs, size:17, power:p || 1, dur:1500 });
 

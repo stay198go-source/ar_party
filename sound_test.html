@@ -44,6 +44,7 @@
 <h2>🗣️ 妖精の声（スマホの読み上げ）</h2>
 <div class="voice"><button data-v="rose">🌹 ローズ<br>はじめまして</button><button data-v="ria">☁️ リア<br>ありがとう</button></div>
 <div class="voice"><button data-v="tink">✨ ティンク<br>ありがとう</button><button data-v="lily">🍃 リリー<br>ありがとう</button></div>
+<div class="status" id="voiceStatus"></div>
 <div class="note">声は、スマホに入っている読み上げの声を高くしたものです。もっとかわいくしたいときは、<b>本物の声のファイル</b>を置くと、そちらが使われます。<br>
 <b>voice_rose_hello.mp3</b>（ローズ「はじめまして」）／ <b>voice_ria_thanks.mp3</b> ／ <b>voice_tink_thanks.mp3</b> ／ <b>voice_lily_thanks.mp3</b><br>
 シャッター音も <b>shutter.mp3</b> を置くと、それが使われます。（.m4a でもOK）</div>
@@ -78,7 +79,15 @@
   document.querySelectorAll('[data-fx]').forEach(b => b.addEventListener('click', () => { FairySound.unlock(); FairySound[b.dataset.fx](); }));
   const LINES = { rose:['voice_rose_hello','はじめまして！ローズよ。よろしくね！'], ria:['voice_ria_thanks','見つけてくれて、ありがとう！リアだよ。'],
                   tink:['voice_tink_thanks','わぁ、見つけてくれてありがとう！ティンクだよ。'], lily:['voice_lily_thanks','見つけてくれてありがとう。リリーです。'] };
-  document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { FairySound.unlock(); const l = LINES[b.dataset.v]; FairySound.say(l[0], l[1], b.dataset.v); }));
+  const voiceStatus = document.getElementById('voiceStatus');
+  document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { FairySound.unlock(); const l = LINES[b.dataset.v];
+    voiceStatus.textContent = '…';
+    FairySound.say(l[0], l[1], b.dataset.v).then(r => {
+      voiceStatus.textContent = r.via === 'file' ? '🎤 本物の声のファイルで鳴らしたよ（' + r.url + '）'
+        : r.via === 'audio-element' ? '🎤 声のファイルを、ふつうの方法で鳴らしたよ（' + r.url + '）'
+        : r.via === 'off' ? '🔇 音がOFFだよ（右上のボタンでONにしてね）'
+        : '🗣️ スマホの読み上げの声だよ（声のファイル ' + l[0] + '.mp3 が見つからなかったよ）';
+    }); }));
 
   // 声のファイルが置いてあるか、しらべる
   const keys = ['voice_rose_hello','voice_ria_thanks','voice_tink_thanks','voice_lily_thanks','shutter'];

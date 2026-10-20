@@ -206,7 +206,7 @@ window.FairySound = (function(){
     shutter(style){
       if(!enabled) return;
       findFile('shutter').catch(()=>null).then(url => {
-        if(url){ try{ new Audio(url).play().catch(()=>{}); }catch(e){} return; }
+        if(url){ playFile(url).then(ok => { if(!ok){ try{ new Audio(url).play().catch(()=>{}); }catch(e){} } }); return; }
         play(()=>{ const t = ctx.currentTime, st = style || getShutter();
           if(st === 'camera'){            // 本物のカメラに近い「カ・シャッ」
             noiseBurst(t, 0.012, 3500, 'highpass', 0.9); tone(190, t, 0.05, {type:'sine', to:90, vol:0.30});
@@ -252,13 +252,53 @@ window.FairySound = (function(){
   function findFile(key){
     return fileExists(key + '.mp3').then(ok => ok ? key + '.mp3' : fileExists(key + '.m4a').then(ok2 => ok2 ? key + '.m4a' : null));
   }
-  /* key: 'voice_rose_hello' など。mp3 / m4a があればそれを、なければ text を読み上げる */
+  /* ---- 音のファイルを、効果音と同じ出口(AudioContext)で鳴らす ----
+   *  iPhone / iPad は、タップの直後でないと <audio> を鳴らしてくれない。
+   *  でも「ロック解除ずみの出口」なら、あとからでも鳴らせる。だから、ファイルを読みこんで、そこへ流す。 */
+  const bufCache = {};
+  function loadBuffer(url){
+    if(!bufCache[url]){
+      bufCache[url] = fetch(url).then(r => { if(!r.ok) throw new Error('http ' + r.status); return r.arrayBuffer(); })
+        .then(ab => new Promise((res, rej) => {
+          const c = ensure(); if(!c) return rej(new Error('no audio'));
+          const p = c.decodeAudioData(ab, res, rej);        // 古い Safari は、コールバック形式
+          if(p && typeof p.then === 'function') p.then(res, rej);
+        }))
+        .catch(() => { delete bufCache[url]; return null; });
+    }
+    return bufCache[url];
+  }
+  function playBuffer(buf){
+    const s = ctx.createBufferSource(); s.buffer = buf;
+    const g = ctx.createGain(); g.gain.value = 1;
+    s.connect(g); g.connect(master); s.start(0);
+  }
+  /* ファイルを鳴らす。鳴らせたら true */
+  function playFile(url){
+    return loadBuffer(url).then(buf => {
+      if(!buf) return false;
+      if(!ensure()) return false;
+      if(ctx.state === 'running') playBuffer(buf); else waiting.push({fn:() => playBuffer(buf), t:Date.now()});
+      return true;
+    }).catch(() => false);
+  }
+  /* あらかじめ読みこんでおく（鳴らすときに、おくれないように） */
+  function preloadVoice(key){ if(!enabled) return; findFile(key).then(url => { if(url) loadBuffer(url); }).catch(()=>{}); }
+
+  /* key: 'voice_rose_hello' など。mp3 / m4a があればそれを、なければ text を読み上げる。
+   * くわしい結果を返す: {via:'file'|'speech', url} */
   function say(key, text, fid){
-    if(!enabled) return;
-    findFile(key).then(url => {
-      if(!enabled) return;
-      if(url){ const a = new Audio(url); a.play().catch(()=>speak(text, fid)); } else speak(text, fid);
-    }).catch(()=>{});
+    if(!enabled) return Promise.resolve({via:'off'});
+    return findFile(key).then(url => {
+      if(!enabled) return {via:'off'};
+      if(!url){ speak(text, fid); return {via:'speech', url:null}; }
+      return playFile(url).then(ok => {
+        if(ok){ try{ speechSynthesis.cancel(); }catch(e){} return {via:'file', url}; }
+        // 読みこめなかった時の予備：ふつうの <audio> → それもだめなら読み上げ
+        try{ const a = new Audio(url); a.play().then(()=>{}, () => speak(text, fid)); }catch(e){ speak(text, fid); }
+        return {via:'audio-element', url};
+      });
+    }).catch(() => { speak(text, fid); return {via:'speech', url:null}; });
   }
 
   /* ---------- 右上の 🔊 / 🔇 ボタン ---------- */
@@ -281,7 +321,7 @@ window.FairySound = (function(){
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountToggle); else mountToggle();
 
-  return Object.assign({ unlock, say, setEnabled, getShutter, setShutter, shutterStyles:['pico','camera','pop','chime','sparkle'], isOn: () => enabled }, FX);
+  return Object.assign({ unlock, say, preloadVoice, setEnabled, getShutter, setShutter, shutterStyles:['pico','camera','pop','chime','sparkle'], isOn: () => enabled }, FX);
 })();
 
 /* ==========================================================================
