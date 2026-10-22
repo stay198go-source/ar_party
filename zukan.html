@@ -3,6 +3,33 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<script>
+/* 何かうまくいかないとき、画面の下に理由を出す（スクリーンショットを送ってもらうための目印） */
+(function(){
+  function show(m){ try{
+    var b = document.getElementById('__err');
+    if(!b){ b = document.createElement('div'); b.id = '__err';
+      b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:rgba(160,20,20,.95);color:#fff;font:12px/1.5 monospace;padding:8px 10px;border-radius:10px;max-height:34vh;overflow:auto;white-space:pre-wrap;word-break:break-all';
+      b.onclick = function(){ b.parentNode && b.parentNode.removeChild(b); };
+      (document.body || document.documentElement).appendChild(b); b.textContent = '⚠️ うまく動かないところがあるよ（タップでとじる）'; }
+    if(b.textContent.length < 900) b.textContent += '\n' + m;
+  }catch(x){} }
+  window.addEventListener('error', function(e){
+    var t = e.target;
+    if(t && t !== window && t.tagName){            // ファイルが読みこめなかった
+      if(t.tagName === 'SCRIPT') show('読みこめない: ' + (t.src || '').split('/').slice(-1)[0]);
+      else if(t.tagName === 'LINK' && /hub\.css/.test(t.href || '')) show('読みこめない: hub.css');
+      return;
+    }
+    show((e.message || 'エラー') + '  [' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || '?') + ']');
+  }, true);
+  window.addEventListener('unhandledrejection', function(e){
+    var r = e.reason, m = String((r && (r.message || r.name)) || r);
+    if(/NotAllowed|Abort|play\(\)|decode|interrupt/i.test(m)) return;     // 音まわりの、こまかい失敗は出さない
+    show('Promise: ' + m);
+  });
+})();
+</script>
 <title>📖 妖精ずかん ― WebAR Fairy World</title>
 <style>
   *{box-sizing:border-box}
@@ -118,7 +145,15 @@
 <!-- 登録のおいわい -->
 <div class="veil reveal" id="reveal"><div class="sheet" id="revealSheet"></div></div>
 
-<script src="fairies.js"></script>
+<script src="fairies.js?v=13"></script>
+<script>
+if(window.FAIRY_VERSION !== '13'){
+  (function(){ var d = document.createElement('div');
+    d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99998;background:#d32f2f;color:#fff;padding:10px 14px;font:700 13px/1.5 sans-serif;text-align:center';
+    d.textContent = '⚠️ ファイルの新しさがそろっていません。ページを閉じて開き直してね。それでもだめなら、GitHubに ar_party のファイルを全部入れ直してね。';
+    function add(){ document.body.appendChild(d); } if(document.body) add(); else document.addEventListener('DOMContentLoaded', add); })();
+}
+</script>
 <script>
 (function(){
   const $ = id => document.getElementById(id);
